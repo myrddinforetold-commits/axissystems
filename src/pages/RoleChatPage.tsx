@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +37,22 @@ export default function RoleChatPage() {
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
 
+  const handleChatError = useCallback((err: string) => {
+    toast({
+      title: "Chat Error",
+      description: err,
+      variant: "destructive",
+    });
+  }, [toast]);
+
+  const handleTaskError = useCallback((err: string) => {
+    toast({
+      title: "Task Error",
+      description: err,
+      variant: "destructive",
+    });
+  }, [toast]);
+
   const { 
     messages, 
     isLoading, 
@@ -48,13 +64,7 @@ export default function RoleChatPage() {
   } = useChatStream({
     roleId: roleId || "",
     companyId: companyId,
-    onError: (err) => {
-      toast({
-        title: "Chat Error",
-        description: err,
-        variant: "destructive",
-      });
-    },
+    onError: handleChatError,
   });
 
   const {
@@ -71,13 +81,7 @@ export default function RoleChatPage() {
   } = useTaskExecution({
     roleId: roleId || "",
     companyId: companyId || "",
-    onError: (err) => {
-      toast({
-        title: "Task Error",
-        description: err,
-        variant: "destructive",
-      });
-    },
+    onError: handleTaskError,
   });
 
   useEffect(() => {

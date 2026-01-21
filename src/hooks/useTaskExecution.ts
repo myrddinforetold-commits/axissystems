@@ -49,6 +49,12 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const executingRef = useRef(false);
+  const onErrorRef = useRef(onError);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const loadTasks = useCallback(async () => {
     if (!roleId || !companyId) return;
@@ -84,11 +90,11 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
       }
     } catch (err) {
       console.error("Failed to load tasks:", err);
-      onError?.("Failed to load tasks");
+      onErrorRef.current?.("Failed to load tasks");
     } finally {
       setIsLoading(false);
     }
-  }, [roleId, companyId, onError]);
+  }, [roleId, companyId]);
 
   const loadAttempts = useCallback(async (taskId: string) => {
     const { data, error } = await supabase
@@ -104,13 +110,13 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
 
   const assignTask = useCallback(async (input: TaskInput): Promise<Task | null> => {
     if (!roleId || !companyId) {
-      onError?.("Invalid role or company");
+      onErrorRef.current?.("Invalid role or company");
       return null;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      onError?.("Not authenticated");
+      onErrorRef.current?.("Not authenticated");
       return null;
     }
 
@@ -140,10 +146,10 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
       return newTask;
     } catch (err) {
       console.error("Failed to assign task:", err);
-      onError?.("Failed to assign task");
+      onErrorRef.current?.("Failed to assign task");
       return null;
     }
-  }, [roleId, companyId, onError]);
+  }, [roleId, companyId]);
 
   const stopTask = useCallback(async (taskId: string) => {
     try {
@@ -171,9 +177,9 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
       setIsExecuting(false);
     } catch (err) {
       console.error("Failed to stop task:", err);
-      onError?.("Failed to stop task");
+      onErrorRef.current?.("Failed to stop task");
     }
-  }, [activeTask, onError]);
+  }, [activeTask]);
 
   const executeAttempt = useCallback(async (taskId: string): Promise<boolean> => {
     if (executingRef.current) return false;
@@ -221,13 +227,13 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
       return result.should_retry === true;
     } catch (err) {
       console.error("Attempt execution error:", err);
-      onError?.(err instanceof Error ? err.message : "Execution failed");
+      onErrorRef.current?.(err instanceof Error ? err.message : "Execution failed");
       return false;
     } finally {
       executingRef.current = false;
       setIsExecuting(false);
     }
-  }, [onError]);
+  }, []);
 
   const startTaskExecution = useCallback(async (taskId: string) => {
     let shouldRetry = true;
