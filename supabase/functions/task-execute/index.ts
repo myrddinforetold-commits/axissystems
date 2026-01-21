@@ -1,0 +1,434 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface Task {
+  id: string;
+  company_id: string;
+  role_id: string;
+  title: string;
+  description: string;
+  completion_criteria: string;
+  status: string;
+  max_attempts: number;
+  current_attempt: number;
+}
+
+interface Role {
+  name: string;
+  mandate: string;
+  system_prompt: string;
+  memory_scope: string;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { task_id } = await req.json();
+    
+    if (!task_id) {
+      return new Response(
+        JSON.stringify({ error: "task_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization header required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
+    if (!lovableApiKey) {
+      return new Response(
+        JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // User client for RLS-aware reads
+    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Service client for writes (bypasses RLS for task_attempts)
+    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authorization" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch task
+    const { data: task, error: taskError } = await supabaseUser
+      .from("tasks")
+      .select("*")
+      .eq("id", task_id)
+      .single();
+
+    if (taskError || !task) {
+      return new Response(
+        JSON.stringify({ error: "Task not found or access denied" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check task status
+    if (task.status === "completed" || task.status === "stopped") {
+      return new Response(
+        JSON.stringify({ error: `Task is already ${task.status}`, task }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (task.current_attempt >= task.max_attempts) {
+      // Mark as blocked if max attempts reached
+      await supabaseService
+        .from("tasks")
+        .update({ status: "blocked" })
+        .eq("id", task_id);
+      
+      return new Response(
+        JSON.stringify({ error: "Max attempts reached", task: { ...task, status: "blocked" } }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Set status to running if pending
+    if (task.status === "pending") {
+      await supabaseService
+        .from("tasks")
+        .update({ status: "running" })
+        .eq("id", task_id);
+    }
+
+    // Fetch role
+    const { data: role, error: roleError } = await supabaseUser
+      .from("roles")
+      .select("name, mandate, system_prompt, memory_scope")
+      .eq("id", task.role_id)
+      .single();
+
+    if (roleError || !role) {
+      return new Response(
+        JSON.stringify({ error: "Role not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch previous attempts for context
+    const { data: previousAttempts } = await supabaseUser
+      .from("task_attempts")
+      .select("attempt_number, model_output, evaluation_result, evaluation_reason")
+      .eq("task_id", task_id)
+      .order("attempt_number", { ascending: true });
+
+    // Build context from previous attempts
+    let previousAttemptsContext = "";
+    if (previousAttempts && previousAttempts.length > 0) {
+      previousAttemptsContext = "\n\n## Previous Attempts:\n" + 
+        previousAttempts.map(a => 
+          `### Attempt ${a.attempt_number} (${a.evaluation_result}):\n${a.model_output}\n\nFeedback: ${a.evaluation_reason || "No specific feedback"}`
+        ).join("\n\n");
+    }
+
+    // Load role memory if applicable
+    let memoryContext = "";
+    const { data: roleMemories } = await supabaseUser
+      .from("role_memory")
+      .select("content, memory_type")
+      .eq("role_id", task.role_id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (roleMemories && roleMemories.length > 0) {
+      memoryContext = "\n\n## Role Memory:\n" + 
+        roleMemories.map(m => `- [${m.memory_type}] ${m.content}`).join("\n");
+    }
+
+    // Load company memory if memory_scope is company
+    if (role.memory_scope === "company") {
+      const { data: companyMemories } = await supabaseUser
+        .from("company_memory")
+        .select("label, content")
+        .eq("company_id", task.company_id)
+        .order("created_at", { ascending: false })
+        .limit(15);
+
+      if (companyMemories && companyMemories.length > 0) {
+        memoryContext += "\n\n## Company Memory:\n" + 
+          companyMemories.map(m => `- [${m.label || "note"}] ${m.content}`).join("\n");
+      }
+    }
+
+    const attemptNumber = task.current_attempt + 1;
+
+    // Build system prompt for task execution
+    const systemPrompt = `${role.system_prompt}
+
+You are executing a specific task. Your output must directly address the task requirements.
+
+## Your Role Mandate:
+${role.mandate}
+${memoryContext}
+
+## Task Details:
+Title: ${task.title}
+Description: ${task.description}
+
+## Completion Criteria:
+${task.completion_criteria}
+
+## Important Instructions:
+1. Focus solely on completing the task as described
+2. Your output must satisfy the completion criteria
+3. Be thorough but concise
+4. If you cannot complete the task, explain why clearly
+5. Do not include meta-commentary about the task itself
+${previousAttemptsContext ? `\n## Learning from Previous Attempts:\nReview the previous attempts below and improve upon them. Address any feedback provided.\n${previousAttemptsContext}` : ""}
+
+This is attempt ${attemptNumber} of ${task.max_attempts}.`;
+
+    // Execute task with AI
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nProvide your complete output now.` }
+        ],
+        stream: false,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("AI gateway error:", aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Payment required. Please add credits." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: "AI service error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const aiData = await aiResponse.json();
+    const modelOutput = aiData.choices?.[0]?.message?.content || "";
+
+    if (!modelOutput) {
+      return new Response(
+        JSON.stringify({ error: "No output from AI" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Evaluate the output against completion criteria
+    const evaluationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { 
+            role: "system", 
+            content: `You are a strict evaluator. Your job is to determine if an AI output meets the specified completion criteria.
+
+Be rigorous but fair. Consider:
+- Does the output directly address what was asked?
+- Are all criteria points satisfied?
+- Is the output complete and actionable?
+
+If you are uncertain whether the criteria are met, return "unclear".
+Never assume success without confidence.` 
+          },
+          { 
+            role: "user", 
+            content: `## Task Title:
+${task.title}
+
+## Task Description:
+${task.description}
+
+## Completion Criteria:
+${task.completion_criteria}
+
+## AI Output to Evaluate:
+${modelOutput}
+
+Evaluate whether this output meets the completion criteria.` 
+          }
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "evaluate_completion",
+            description: "Evaluate whether the AI output meets the task completion criteria",
+            parameters: {
+              type: "object",
+              properties: {
+                result: { 
+                  type: "string", 
+                  enum: ["pass", "fail", "unclear"],
+                  description: "pass: criteria clearly met. fail: criteria clearly not met. unclear: cannot determine with confidence."
+                },
+                reason: { 
+                  type: "string",
+                  description: "Brief explanation of the evaluation decision"
+                }
+              },
+              required: ["result", "reason"],
+              additionalProperties: false
+            }
+          }
+        }],
+        tool_choice: { type: "function", function: { name: "evaluate_completion" } }
+      }),
+    });
+
+    let evaluationResult: "pass" | "fail" | "unclear" = "unclear";
+    let evaluationReason = "Evaluation failed";
+
+    if (evaluationResponse.ok) {
+      const evalData = await evaluationResponse.json();
+      const toolCall = evalData.choices?.[0]?.message?.tool_calls?.[0];
+      
+      if (toolCall?.function?.arguments) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          evaluationResult = args.result || "unclear";
+          evaluationReason = args.reason || "No reason provided";
+        } catch (e) {
+          console.error("Failed to parse evaluation:", e);
+        }
+      }
+    } else {
+      console.error("Evaluation API error:", await evaluationResponse.text());
+    }
+
+    // Store the attempt using service client
+    await supabaseService
+      .from("task_attempts")
+      .insert({
+        task_id: task_id,
+        attempt_number: attemptNumber,
+        model_output: modelOutput,
+        evaluation_result: evaluationResult,
+        evaluation_reason: evaluationReason,
+      });
+
+    // Update task based on evaluation
+    let newStatus = task.status;
+    let completionSummary = null;
+
+    if (evaluationResult === "pass") {
+      newStatus = "completed";
+      
+      // Generate completion summary
+      const summaryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { 
+              role: "system", 
+              content: "Generate a concise completion summary. Include: what was asked, what was delivered, and any assumptions made. Keep it brief and professional." 
+            },
+            { 
+              role: "user", 
+              content: `Task: ${task.title}\n\nDescription: ${task.description}\n\nCriteria: ${task.completion_criteria}\n\nOutput: ${modelOutput}` 
+            }
+          ],
+          stream: false,
+        }),
+      });
+
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json();
+        completionSummary = summaryData.choices?.[0]?.message?.content || "Task completed successfully.";
+      }
+    } else if (evaluationResult === "unclear") {
+      newStatus = "blocked";
+    } else if (attemptNumber >= task.max_attempts) {
+      newStatus = "blocked";
+    }
+    // If fail and retries remain, status stays "running"
+
+    await supabaseService
+      .from("tasks")
+      .update({ 
+        status: newStatus, 
+        current_attempt: attemptNumber,
+        completion_summary: completionSummary
+      })
+      .eq("id", task_id);
+
+    // Fetch updated task
+    const { data: updatedTask } = await supabaseService
+      .from("tasks")
+      .select("*")
+      .eq("id", task_id)
+      .single();
+
+    return new Response(
+      JSON.stringify({ 
+        task: updatedTask,
+        attempt: {
+          attempt_number: attemptNumber,
+          model_output: modelOutput,
+          evaluation_result: evaluationResult,
+          evaluation_reason: evaluationReason,
+        },
+        should_retry: evaluationResult === "fail" && attemptNumber < task.max_attempts
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("Task execution error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

@@ -4,10 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStream } from "@/hooks/useChatStream";
+import { useTaskExecution } from "@/hooks/useTaskExecution";
 import ChatHeader from "@/components/chat/ChatHeader";
 import ChatMessages from "@/components/chat/ChatMessages";
 import ChatInput from "@/components/chat/ChatInput";
 import CompanyMemoryPanel from "@/components/memory/CompanyMemoryPanel";
+import AssignTaskDialog from "@/components/tasks/AssignTaskDialog";
+import TaskPanel from "@/components/tasks/TaskPanel";
+import ActiveTaskBanner from "@/components/tasks/ActiveTaskBanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -30,6 +34,8 @@ export default function RoleChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [showMemoryPanel, setShowMemoryPanel] = useState(false);
+  const [showTaskPanel, setShowTaskPanel] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
   const { 
     messages, 
@@ -45,6 +51,29 @@ export default function RoleChatPage() {
     onError: (err) => {
       toast({
         title: "Chat Error",
+        description: err,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const {
+    tasks,
+    activeTask,
+    attempts,
+    isExecuting,
+    isLoading: tasksLoading,
+    loadTasks,
+    loadAttempts,
+    assignTask,
+    stopTask,
+    startTaskExecution,
+  } = useTaskExecution({
+    roleId: roleId || "",
+    companyId: companyId || "",
+    onError: (err) => {
+      toast({
+        title: "Task Error",
         description: err,
         variant: "destructive",
       });
@@ -106,6 +135,42 @@ export default function RoleChatPage() {
     });
   };
 
+  const handleAssignTask = async (input: { title: string; description: string; completion_criteria: string; max_attempts: number }) => {
+    const newTask = await assignTask(input);
+    if (newTask) {
+      toast({
+        title: "Task assigned",
+        description: "Task execution will begin shortly.",
+      });
+      // Start execution
+      startTaskExecution(newTask.id);
+    }
+  };
+
+  const handleStopTask = async (taskId: string) => {
+    await stopTask(taskId);
+    toast({
+      title: "Task stopped",
+      description: "The task has been stopped.",
+    });
+  };
+
+  // Show toast when task completes or blocks
+  useEffect(() => {
+    if (activeTask?.status === "completed") {
+      toast({
+        title: "Task completed",
+        description: activeTask.title,
+      });
+    } else if (activeTask?.status === "blocked") {
+      toast({
+        title: "Task blocked",
+        description: "The task could not be completed and needs attention.",
+        variant: "destructive",
+      });
+    }
+  }, [activeTask?.status, activeTask?.title, toast]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -137,7 +202,20 @@ export default function RoleChatPage() {
         mandate={role.mandate}
         onBack={handleBack}
         onOpenMemory={() => setShowMemoryPanel(true)}
+        onOpenTasks={() => setShowTaskPanel(true)}
+        hasActiveTask={activeTask !== null && (activeTask.status === "running" || activeTask.status === "pending")}
       />
+      
+      {/* Active Task Banner */}
+      {activeTask && (activeTask.status === "running" || activeTask.status === "pending") && (
+        <ActiveTaskBanner
+          task={activeTask}
+          isExecuting={isExecuting}
+          onViewDetails={() => setShowTaskPanel(true)}
+          onStop={() => handleStopTask(activeTask.id)}
+        />
+      )}
+      
       <ChatMessages 
         messages={messages} 
         isLoading={isLoading}
@@ -149,6 +227,7 @@ export default function RoleChatPage() {
         isStreaming={isStreaming}
       />
       
+      {/* Memory Panel */}
       {companyId && (
         <CompanyMemoryPanel
           open={showMemoryPanel}
@@ -157,6 +236,31 @@ export default function RoleChatPage() {
           isOwner={isOwner}
         />
       )}
+
+      {/* Task Panel */}
+      <TaskPanel
+        open={showTaskPanel}
+        onOpenChange={setShowTaskPanel}
+        tasks={tasks}
+        activeTask={activeTask}
+        attempts={attempts}
+        isExecuting={isExecuting}
+        isLoading={tasksLoading}
+        onAssignClick={() => {
+          setShowTaskPanel(false);
+          setShowAssignDialog(true);
+        }}
+        onStopTask={handleStopTask}
+        onLoadAttempts={loadAttempts}
+      />
+
+      {/* Assign Task Dialog */}
+      <AssignTaskDialog
+        open={showAssignDialog}
+        onOpenChange={setShowAssignDialog}
+        onAssign={handleAssignTask}
+        roleName={role.name}
+      />
     </div>
   );
 }
