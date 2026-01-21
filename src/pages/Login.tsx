@@ -58,14 +58,20 @@ export default function Login() {
           isHeaderVisible ? "translate-y-0" : "-translate-y-full"
         )}
       >
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <Link to="/">
-            <img src={axisLogo} alt="Axis Systems" className="h-8" />
-          </Link>
-        </div>
+        <nav className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex h-20 items-center">
+            <Link to="/" className="flex-shrink-0">
+              <img 
+                src={axisLogo} 
+                alt="Axis Systems" 
+                className="h-12 sm:h-14 lg:h-16 w-auto" 
+              />
+            </Link>
+          </div>
+        </nav>
       </header>
       
-      <div className="flex flex-1 items-center justify-center px-4 pt-16">
+      <div className="flex flex-1 items-center justify-center px-4 pt-20">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">Sign In</CardTitle>
