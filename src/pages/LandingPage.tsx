@@ -18,7 +18,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <LandingHeader onRequestAccess={handleRequestAccess} />
-      <main className="pt-20">
+      <main className="pt-28 sm:pt-32 lg:pt-36">
         <HeroSection onRequestAccess={handleRequestAccess} />
         <ProductSection />
         <HowItWorksSection />
