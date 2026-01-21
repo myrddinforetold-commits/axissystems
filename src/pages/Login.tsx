@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import axisLogo from '@/assets/axis-logo.png';
 
 export default function Login() {
   const { signIn, user, loading } = useAuth();
@@ -12,6 +14,23 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
 
   // Redirect if already logged in
   if (!loading && user) {
@@ -32,10 +51,24 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Axis Systems</CardTitle>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header
+        className={cn(
+          "fixed top-0 left-0 right-0 z-50 bg-black transition-transform duration-300",
+          isHeaderVisible ? "translate-y-0" : "-translate-y-full"
+        )}
+      >
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <Link to="/">
+            <img src={axisLogo} alt="Axis Systems" className="h-8" />
+          </Link>
+        </div>
+      </header>
+      
+      <div className="flex flex-1 items-center justify-center px-4 pt-16">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">Sign In</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -81,7 +114,8 @@ export default function Login() {
             </p>
           </CardFooter>
         </form>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

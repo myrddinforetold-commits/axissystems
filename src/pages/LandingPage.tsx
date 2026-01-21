@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { ProductSection } from "@/components/landing/ProductSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
@@ -16,7 +17,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main>
+      <LandingHeader onRequestAccess={handleRequestAccess} />
+      <main className="pt-16">
         <HeroSection onRequestAccess={handleRequestAccess} />
         <ProductSection />
         <HowItWorksSection />
