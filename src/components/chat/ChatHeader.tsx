@@ -1,14 +1,21 @@
-import { ArrowLeft, Bot } from "lucide-react";
+import { ArrowLeft, Bot, BrainCircuit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ChatHeaderProps {
   roleName: string;
   mandate: string;
   onBack: () => void;
+  onOpenMemory?: () => void;
 }
 
-export default function ChatHeader({ roleName, mandate, onBack }: ChatHeaderProps) {
+export default function ChatHeader({ roleName, mandate, onBack, onOpenMemory }: ChatHeaderProps) {
   return (
     <div className="border-b bg-card px-4 py-3">
       <div className="flex items-start gap-3">
@@ -30,6 +37,25 @@ export default function ChatHeader({ roleName, mandate, onBack }: ChatHeaderProp
             {mandate}
           </p>
         </div>
+        {onOpenMemory && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onOpenMemory}
+                  className="shrink-0"
+                >
+                  <BrainCircuit className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Company Memory</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
     </div>
   );

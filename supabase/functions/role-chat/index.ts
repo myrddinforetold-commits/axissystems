@@ -65,31 +65,51 @@ serve(async (req) => {
       );
     }
 
-    // Fetch role memory
-    const { data: memories } = await supabaseUser
-      .from("role_memory")
-      .select("content, memory_type")
-      .eq("role_id", role_id)
+  // Fetch role memory (private to this role)
+  const { data: roleMemories } = await supabaseUser
+    .from("role_memory")
+    .select("content, memory_type")
+    .eq("role_id", role_id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  // Fetch company memory (shared across roles) if role's memory_scope allows
+  let companyMemories: { content: string; label: string | null }[] = [];
+  if (role.memory_scope === "company") {
+    const { data } = await supabaseUser
+      .from("company_memory")
+      .select("content, label")
+      .eq("company_id", role.company_id)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(15);
+    companyMemories = data || [];
+  }
 
-    // Fetch conversation history (last 20 messages)
-    const { data: history } = await supabaseUser
-      .from("role_messages")
-      .select("sender, content")
-      .eq("role_id", role_id)
-      .order("created_at", { ascending: false })
-      .limit(20);
+  // Fetch conversation history (last 20 messages)
+  const { data: history } = await supabaseUser
+    .from("role_messages")
+    .select("sender, content")
+    .eq("role_id", role_id)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
-    // Reverse to get chronological order
-    const conversationHistory = (history || []).reverse();
+  // Reverse to get chronological order
+  const conversationHistory = (history || []).reverse();
 
-    // Build memory context
-    let memoryContext = "";
-    if (memories && memories.length > 0) {
-      memoryContext = "\n\n## Relevant Memory:\n" + 
-        memories.map(m => `[${m.memory_type}]: ${m.content}`).join("\n");
-    }
+  // Build memory context
+  let memoryContext = "";
+  
+  // Add role-specific memory
+  if (roleMemories && roleMemories.length > 0) {
+    memoryContext += "\n\n## Role Memory (Private):\n" + 
+      roleMemories.map(m => `- [${m.memory_type}] ${m.content}`).join("\n");
+  }
+  
+  // Add company-wide memory
+  if (companyMemories.length > 0) {
+    memoryContext += "\n\n## Company Memory (Shared):\n" + 
+      companyMemories.map(m => `- ${m.label ? `[${m.label}] ` : ""}${m.content}`).join("\n");
+  }
 
     // Build system prompt with memory
     const fullSystemPrompt = `${role.system_prompt}${memoryContext}

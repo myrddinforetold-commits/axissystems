@@ -64,6 +64,61 @@ export type Database = {
           },
         ]
       }
+      company_memory: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          id: string
+          label: string | null
+          pinned_by: string
+          source_message_id: string | null
+          source_role_id: string | null
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          pinned_by: string
+          source_message_id?: string | null
+          source_role_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          pinned_by?: string
+          source_message_id?: string | null
+          source_role_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_memory_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_memory_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "role_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_memory_source_role_id_fkey"
+            columns: ["source_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
