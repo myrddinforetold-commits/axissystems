@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -14,6 +16,11 @@ import CompanyShell from "./pages/CompanyShell";
 import RoleChatPage from "./pages/RoleChatPage";
 import CoSReportPage from "./pages/CoSReportPage";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminCompanies from "./pages/admin/AdminCompanies";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAccessRequests from "./pages/admin/AdminAccessRequests";
+import AdminSettings from "./pages/admin/AdminSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +77,21 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Admin Routes */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminLayout />
+                </AdminRoute>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="companies" element={<AdminCompanies />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="access-requests" element={<AdminAccessRequests />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
