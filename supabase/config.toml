@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.cos-summary]
 verify_jwt = false
+
+[functions.task-execute]
+verify_jwt = false

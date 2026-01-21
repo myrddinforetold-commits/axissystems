@@ -396,6 +396,107 @@ export type Database = {
           },
         ]
       }
+      task_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          evaluation_reason: string | null
+          evaluation_result: Database["public"]["Enums"]["attempt_result"]
+          id: string
+          model_output: string
+          task_id: string
+        }
+        Insert: {
+          attempt_number: number
+          created_at?: string
+          evaluation_reason?: string | null
+          evaluation_result: Database["public"]["Enums"]["attempt_result"]
+          id?: string
+          model_output: string
+          task_id: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          evaluation_reason?: string | null
+          evaluation_result?: Database["public"]["Enums"]["attempt_result"]
+          id?: string
+          model_output?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attempts_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_by: string
+          company_id: string
+          completion_criteria: string
+          completion_summary: string | null
+          created_at: string
+          current_attempt: number
+          description: string
+          id: string
+          max_attempts: number
+          role_id: string
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          company_id: string
+          completion_criteria: string
+          completion_summary?: string | null
+          created_at?: string
+          current_attempt?: number
+          description: string
+          id?: string
+          max_attempts?: number
+          role_id: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          company_id?: string
+          completion_criteria?: string
+          completion_summary?: string | null
+          created_at?: string
+          current_attempt?: number
+          description?: string
+          id?: string
+          max_attempts?: number
+          role_id?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -428,6 +529,7 @@ export type Database = {
       }
     }
     Enums: {
+      attempt_result: "pass" | "fail" | "unclear"
       authority_level:
         | "observer"
         | "advisor"
@@ -437,6 +539,7 @@ export type Database = {
       company_role: "owner" | "member"
       memory_scope: "role" | "company"
       message_sender: "user" | "ai"
+      task_status: "pending" | "running" | "completed" | "blocked" | "stopped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -564,6 +667,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      attempt_result: ["pass", "fail", "unclear"],
       authority_level: [
         "observer",
         "advisor",
@@ -574,6 +678,7 @@ export const Constants = {
       company_role: ["owner", "member"],
       memory_scope: ["role", "company"],
       message_sender: ["user", "ai"],
+      task_status: ["pending", "running", "completed", "blocked", "stopped"],
     },
   },
 } as const
