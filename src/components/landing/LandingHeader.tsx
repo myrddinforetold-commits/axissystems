@@ -38,8 +38,8 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       )}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="-my-4">
-          <img src={axisLogo} alt="Axis Systems" className="h-20" />
+        <Link to="/" className="-my-8">
+          <img src={axisLogo} alt="Axis Systems" className="h-40" />
         </Link>
         
         <div className="flex items-center gap-3">
