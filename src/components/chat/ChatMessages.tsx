@@ -7,9 +7,16 @@ import type { ChatMessage as ChatMessageType } from "@/hooks/useChatStream";
 interface ChatMessagesProps {
   messages: ChatMessageType[];
   isLoading: boolean;
+  pinnedMessageIds?: Set<string>;
+  onPinToMemory?: (messageId: string, content: string, label: string) => Promise<void>;
 }
 
-export default function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export default function ChatMessages({ 
+  messages, 
+  isLoading,
+  pinnedMessageIds,
+  onPinToMemory,
+}: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +59,12 @@ export default function ChatMessages({ messages, isLoading }: ChatMessagesProps)
     );
   }
 
+  const handlePinMessage = async (messageId: string, content: string, label: string) => {
+    if (onPinToMemory) {
+      await onPinToMemory(messageId, content, label);
+    }
+  };
+
   return (
     <ScrollArea className="flex-1" ref={scrollRef}>
       <div className="py-4">
@@ -61,6 +74,13 @@ export default function ChatMessages({ messages, isLoading }: ChatMessagesProps)
             sender={message.sender}
             content={message.content}
             isStreaming={message.isStreaming}
+            messageId={message.id}
+            isPinned={pinnedMessageIds?.has(message.id)}
+            onPinToMemory={
+              message.sender === "ai" && onPinToMemory
+                ? (content, label) => handlePinMessage(message.id, content, label)
+                : undefined
+            }
           />
         ))}
         <div ref={bottomRef} />

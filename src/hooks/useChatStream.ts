@@ -11,13 +11,15 @@ export interface ChatMessage {
 
 interface UseChatStreamOptions {
   roleId: string;
+  companyId?: string;
   onError?: (error: string) => void;
 }
 
-export function useChatStream({ roleId, onError }: UseChatStreamOptions) {
+export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
 
   const loadMessages = useCallback(async () => {
     setIsLoading(true);
@@ -38,13 +40,28 @@ export function useChatStream({ roleId, onError }: UseChatStreamOptions) {
           created_at: msg.created_at,
         }))
       );
+
+      // Load pinned message IDs if companyId is provided
+      if (companyId) {
+        const { data: pinnedData } = await supabase
+          .from("company_memory")
+          .select("source_message_id")
+          .eq("company_id", companyId)
+          .not("source_message_id", "is", null);
+
+        if (pinnedData) {
+          setPinnedMessageIds(
+            new Set(pinnedData.map((p) => p.source_message_id).filter(Boolean) as string[])
+          );
+        }
+      }
     } catch (err) {
       console.error("Failed to load messages:", err);
       onError?.("Failed to load conversation history");
     } finally {
       setIsLoading(false);
     }
-  }, [roleId, onError]);
+  }, [roleId, companyId, onError]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -196,11 +213,55 @@ export function useChatStream({ roleId, onError }: UseChatStreamOptions) {
     [roleId, isStreaming, onError, loadMessages]
   );
 
+  const pinToCompanyMemory = useCallback(
+    async (messageId: string, content: string, label: string) => {
+      if (!companyId) {
+        onError?.("Company ID is required to pin memories");
+        return;
+      }
+
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+
+        // Get the source role ID from the message
+        const { data: message } = await supabase
+          .from("role_messages")
+          .select("role_id")
+          .eq("id", messageId)
+          .single();
+
+        const { error } = await supabase.from("company_memory").insert({
+          company_id: companyId,
+          content,
+          source_message_id: messageId,
+          source_role_id: message?.role_id || roleId,
+          pinned_by: user.id,
+          label: label || null,
+        });
+
+        if (error) throw error;
+
+        // Update pinned message IDs
+        setPinnedMessageIds((prev) => new Set([...prev, messageId]));
+      } catch (err) {
+        console.error("Failed to pin memory:", err);
+        onError?.("Failed to pin message to company memory");
+        throw err;
+      }
+    },
+    [companyId, roleId, onError]
+  );
+
   return {
     messages,
     isLoading,
     isStreaming,
+    pinnedMessageIds,
     loadMessages,
     sendMessage,
+    pinToCompanyMemory,
   };
 }

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStream } from "@/hooks/useChatStream";
 import ChatHeader from "@/components/chat/ChatHeader";
 import ChatMessages from "@/components/chat/ChatMessages";
 import ChatInput from "@/components/chat/ChatInput";
+import CompanyMemoryPanel from "@/components/memory/CompanyMemoryPanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -19,15 +21,27 @@ interface Role {
 
 export default function RoleChatPage() {
   const { id: companyId, roleId } = useParams<{ id: string; roleId: string }>();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
 
-  const { messages, isLoading, isStreaming, loadMessages, sendMessage } = useChatStream({
+  const { 
+    messages, 
+    isLoading, 
+    isStreaming, 
+    pinnedMessageIds,
+    loadMessages, 
+    sendMessage,
+    pinToCompanyMemory,
+  } = useChatStream({
     roleId: roleId || "",
+    companyId: companyId,
     onError: (err) => {
       toast({
         title: "Chat Error",
@@ -39,7 +53,7 @@ export default function RoleChatPage() {
 
   useEffect(() => {
     async function fetchRole() {
-      if (!roleId || !companyId) {
+      if (!roleId || !companyId || !user) {
         setError("Invalid role or company");
         setLoading(false);
         return;
@@ -57,6 +71,17 @@ export default function RoleChatPage() {
         if (!data) throw new Error("Role not found");
 
         setRole(data);
+
+        // Check if user is owner
+        const { data: memberData } = await supabase
+          .from("company_members")
+          .select("role")
+          .eq("company_id", companyId)
+          .eq("user_id", user.id)
+          .single();
+
+        setIsOwner(memberData?.role === "owner");
+
         await loadMessages();
       } catch (err) {
         console.error("Failed to load role:", err);
@@ -67,10 +92,18 @@ export default function RoleChatPage() {
     }
 
     fetchRole();
-  }, [roleId, companyId, loadMessages]);
+  }, [roleId, companyId, user, loadMessages]);
 
   const handleBack = () => {
     navigate(`/companies/${companyId}`);
+  };
+
+  const handlePinToMemory = async (messageId: string, content: string, label: string) => {
+    await pinToCompanyMemory(messageId, content, label);
+    toast({
+      title: "Memory pinned",
+      description: "Message saved to company memory.",
+    });
   };
 
   if (loading) {
@@ -103,12 +136,27 @@ export default function RoleChatPage() {
         roleName={role.name}
         mandate={role.mandate}
         onBack={handleBack}
+        onOpenMemory={() => setShowMemoryPanel(true)}
       />
-      <ChatMessages messages={messages} isLoading={isLoading} />
+      <ChatMessages 
+        messages={messages} 
+        isLoading={isLoading}
+        pinnedMessageIds={pinnedMessageIds}
+        onPinToMemory={handlePinToMemory}
+      />
       <ChatInput
         onSend={sendMessage}
         isStreaming={isStreaming}
       />
+      
+      {companyId && (
+        <CompanyMemoryPanel
+          open={showMemoryPanel}
+          onOpenChange={setShowMemoryPanel}
+          companyId={companyId}
+          isOwner={isOwner}
+        />
+      )}
     </div>
   );
 }
