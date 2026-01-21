@@ -37,9 +37,9 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
         isVisible ? "translate-y-0" : "-translate-y-full"
       )}
     >
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/">
-          <img src={axisLogo} alt="Axis Systems" className="h-32" />
+          <img src={axisLogo} alt="Axis Systems" className="h-12" />
         </Link>
         
         {showCTA && onRequestAccess && (
