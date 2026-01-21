@@ -37,31 +37,39 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
         isVisible ? "translate-y-0" : "-translate-y-full"
       )}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="-my-8">
-          <img src={axisLogo} alt="Axis Systems" className="h-40" />
-        </Link>
-        
-        <div className="flex items-center gap-3">
-          <Link to="/login">
-            <Button
-              variant="ghost"
-              className="text-white hover:bg-white/10 hover:text-white"
-            >
-              Login
-            </Button>
+      <nav className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex h-20 items-center justify-between">
+          <Link to="/" className="flex-shrink-0">
+            <img 
+              src={axisLogo} 
+              alt="Axis Systems" 
+              className="h-12 sm:h-14 lg:h-16 w-auto" 
+            />
           </Link>
-          {showCTA && onRequestAccess && (
-            <Button
-              variant="outline"
-              onClick={onRequestAccess}
-              className="border-white text-white bg-transparent hover:bg-white hover:text-black"
-            >
-              Request Access
-            </Button>
-          )}
+          
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link to="/login">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/10 hover:text-white"
+              >
+                Login
+              </Button>
+            </Link>
+            {showCTA && onRequestAccess && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRequestAccess}
+                className="border-white text-white bg-transparent hover:bg-white hover:text-black"
+              >
+                Request Access
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      </nav>
     </header>
   );
 }
