@@ -168,7 +168,13 @@ export default function CompanyShell() {
           </TabsList>
 
           <TabsContent value="team">
-            <TeamTab members={members} currentUserId={user?.id} />
+            <TeamTab 
+              members={members} 
+              currentUserId={user?.id} 
+              companyId={company.id}
+              companyName={company.name}
+              isOwner={isOwner}
+            />
           </TabsContent>
 
           <TabsContent value="roles">
