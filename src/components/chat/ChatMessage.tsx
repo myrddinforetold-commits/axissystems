@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import PinToMemoryDialog from "./PinToMemoryDialog";
+import ReactMarkdown from "react-markdown";
 
 interface ChatMessageProps {
   sender: "user" | "ai";
@@ -65,11 +66,21 @@ export default function ChatMessage({
                 : "bg-muted text-foreground rounded-bl-md"
             )}
           >
-            <p className="text-sm whitespace-pre-wrap break-words">
-              {content || (isStreaming ? "..." : "")}
-            </p>
-            {isStreaming && content && (
-              <span className="inline-block w-1.5 h-4 bg-current opacity-70 animate-pulse ml-0.5" />
+            {isUser ? (
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {content || (isStreaming ? "..." : "")}
+              </p>
+            ) : (
+              <>
+                <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+                  <ReactMarkdown>
+                    {content || (isStreaming ? "..." : "")}
+                  </ReactMarkdown>
+                </div>
+                {isStreaming && content && (
+                  <span className="inline-block w-1.5 h-4 bg-current opacity-70 animate-pulse ml-0.5" />
+                )}
+              </>
             )}
           </div>
           
