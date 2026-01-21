@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ChatMessage {
@@ -20,6 +20,13 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
+  
+  const onErrorRef = useRef(onError);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const loadMessages = useCallback(async () => {
     setIsLoading(true);
@@ -57,11 +64,11 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
       }
     } catch (err) {
       console.error("Failed to load messages:", err);
-      onError?.("Failed to load conversation history");
+      onErrorRef.current?.("Failed to load conversation history");
     } finally {
       setIsLoading(false);
     }
-  }, [roleId, companyId, onError]);
+  }, [roleId, companyId]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -202,7 +209,7 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
       } catch (err) {
         console.error("Chat error:", err);
         const errorMessage = err instanceof Error ? err.message : "Failed to send message";
-        onError?.(errorMessage);
+        onErrorRef.current?.(errorMessage);
 
         // Remove the failed AI message placeholder
         setMessages((prev) => prev.filter((msg) => msg.id !== aiMessageId));
@@ -210,13 +217,13 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
         setIsStreaming(false);
       }
     },
-    [roleId, isStreaming, onError, loadMessages]
+    [roleId, isStreaming, loadMessages]
   );
 
   const pinToCompanyMemory = useCallback(
     async (messageId: string, content: string, label: string) => {
       if (!companyId) {
-        onError?.("Company ID is required to pin memories");
+        onErrorRef.current?.("Company ID is required to pin memories");
         return;
       }
 
@@ -248,11 +255,11 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
         setPinnedMessageIds((prev) => new Set([...prev, messageId]));
       } catch (err) {
         console.error("Failed to pin memory:", err);
-        onError?.("Failed to pin message to company memory");
+        onErrorRef.current?.("Failed to pin message to company memory");
         throw err;
       }
     },
-    [companyId, roleId, onError]
+    [companyId, roleId]
   );
 
   return {
