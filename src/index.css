@@ -53,6 +53,15 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Alien metallic rainbow colors - available in all modes */
+    --alien-deep-space: 240 50% 14%;
+    --alien-purple: 277 100% 31%;
+    --alien-teal: 184 100% 19%;
+    --alien-emerald: 131 100% 23%;
+    --alien-gold: 44 100% 52%;
+    --alien-copper: 20 100% 37%;
+    --alien-cyan: 184 100% 50%;
   }
 
   .dark {
@@ -92,14 +101,6 @@ All colors MUST be HSL.
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
 
-    /* Alien metallic rainbow colors */
-    --alien-deep-space: 240 50% 14%;
-    --alien-purple: 277 100% 31%;
-    --alien-teal: 184 100% 19%;
-    --alien-emerald: 131 100% 23%;
-    --alien-gold: 44 100% 52%;
-    --alien-copper: 20 100% 37%;
-    --alien-cyan: 184 100% 50%;
   }
 }
 
