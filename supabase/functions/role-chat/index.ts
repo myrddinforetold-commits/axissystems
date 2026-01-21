@@ -69,6 +69,13 @@ serve(async (req) => {
       );
     }
 
+    // Fetch company context for stage-appropriate behavior
+    const { data: companyContext } = await supabaseUser
+      .from("company_context")
+      .select("stage")
+      .eq("company_id", role.company_id)
+      .maybeSingle();
+
   // Fetch role memory (private to this role)
   const { data: roleMemories } = await supabaseUser
     .from("role_memory")
@@ -115,9 +122,41 @@ serve(async (req) => {
       companyMemories.map(m => `- ${m.label ? `[${m.label}] ` : ""}${m.content}`).join("\n");
   }
 
-    // Build system prompt with memory
-    const fullSystemPrompt = `${role.system_prompt}${memoryContext}
+    // Build stage-specific guidance based on company context
+    let stageGuidance = "";
+    const stage = companyContext?.stage || "early";
+    
+    if (stage === "early") {
+      stageGuidance = `
+## Company Stage Context:
+This is an early-stage company with sparse data and high ambiguity.
+- Do not ask for data or reports that likely don't exist
+- Prefer directional guidance over detailed frameworks
+- Keep clarifying questions to 2-3 essential ones maximum
+- Offer hypotheses rather than demanding specifics
+- Avoid audit-style questioning (e.g., "Where is your data?")
+`;
+    } else if (stage === "growing") {
+      stageGuidance = `
+## Company Stage Context:
+This company has some established processes but limited historical data.
+- Balance structured approaches with flexibility
+- Some data may be available but incomplete
+- Keep clarifying questions focused and practical
+`;
+    } else if (stage === "established") {
+      stageGuidance = `
+## Company Stage Context:
+This is an established organization with clear processes.
+- Can reference established processes and historical data
+- Structured frameworks and detailed analysis are appropriate
+- Can ask for specific data and reports when needed
+`;
+    }
 
+    // Build system prompt with memory and stage context
+    const fullSystemPrompt = `${role.system_prompt}${memoryContext}
+${stageGuidance}
 ## Your Mandate:
 ${role.mandate}
 

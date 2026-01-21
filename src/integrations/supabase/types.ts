@@ -62,6 +62,41 @@ export type Database = {
         }
         Relationships: []
       }
+      company_context: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          set_by: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          set_by: string
+          stage?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          set_by?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_context_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_invitations: {
         Row: {
           company_id: string
@@ -358,6 +393,7 @@ export type Database = {
           memory_scope: Database["public"]["Enums"]["memory_scope"]
           name: string
           system_prompt: string
+          task_mode_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -371,6 +407,7 @@ export type Database = {
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
           name: string
           system_prompt: string
+          task_mode_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -384,6 +421,7 @@ export type Database = {
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
           name?: string
           system_prompt?: string
+          task_mode_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
