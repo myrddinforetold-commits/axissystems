@@ -119,6 +119,51 @@ export type Database = {
           },
         ]
       }
+      cos_reports: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          generated_by: string
+          id: string
+          report_type: string
+          role_id: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          generated_by: string
+          id?: string
+          report_type: string
+          role_id: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          generated_by?: string
+          id?: string
+          report_type?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cos_reports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cos_reports_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -293,7 +338,12 @@ export type Database = {
       }
     }
     Enums: {
-      authority_level: "observer" | "advisor" | "operator" | "executive"
+      authority_level:
+        | "observer"
+        | "advisor"
+        | "operator"
+        | "executive"
+        | "orchestrator"
       company_role: "owner" | "member"
       memory_scope: "role" | "company"
       message_sender: "user" | "ai"
@@ -424,7 +474,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      authority_level: ["observer", "advisor", "operator", "executive"],
+      authority_level: [
+        "observer",
+        "advisor",
+        "operator",
+        "executive",
+        "orchestrator",
+      ],
       company_role: ["owner", "member"],
       memory_scope: ["role", "company"],
       message_sender: ["user", "ai"],
