@@ -6,12 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
+import TemplateSelectionDialog from '@/components/company/TemplateSelectionDialog';
 
 export default function CreateCompany() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(null);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,53 +46,73 @@ export default function CreateCompany() {
       return;
     }
 
-    // Redirect to the new company
-    navigate(`/companies/${data}`, { replace: true });
+    // Show template selection dialog
+    setCreatedCompanyId(data);
+    setShowTemplateDialog(true);
+    setIsSubmitting(false);
+  };
+
+  const handleTemplateComplete = () => {
+    setShowTemplateDialog(false);
+    if (createdCompanyId) {
+      navigate(`/companies/${createdCompanyId}`, { replace: true });
+    }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-fit"
-            onClick={() => navigate('/companies')}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <CardTitle className="text-2xl font-bold tracking-tight">Create Company</CardTitle>
-          <CardDescription>Set up a new company workspace</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="name">Company Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Acme Inc."
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Company'}
+    <>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-fit"
+              onClick={() => navigate('/companies')}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
             </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+            <CardTitle className="text-2xl font-bold tracking-tight">Create Company</CardTitle>
+            <CardDescription>Set up a new company workspace</CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="name">Company Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Acme Inc."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating...' : 'Create Company'}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+
+      {createdCompanyId && (
+        <TemplateSelectionDialog
+          open={showTemplateDialog}
+          onOpenChange={setShowTemplateDialog}
+          companyId={createdCompanyId}
+          onComplete={handleTemplateComplete}
+        />
+      )}
+    </>
   );
 }
