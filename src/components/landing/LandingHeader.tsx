@@ -38,7 +38,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       )}
     >
       <nav className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex h-28 sm:h-32 lg:h-36 items-center justify-between">
+        <div className="flex h-20 sm:h-24 lg:h-28 items-center justify-between">
           <Link to="/" className="flex-shrink-0">
             <img 
               src={axisLogo} 
