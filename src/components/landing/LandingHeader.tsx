@@ -39,14 +39,14 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/">
-          <img src={axisLogo} alt="Axis Systems" className="h-8" />
+          <img src={axisLogo} alt="Axis Systems" className="h-16" />
         </Link>
         
         {showCTA && onRequestAccess && (
           <Button
             variant="outline"
             onClick={onRequestAccess}
-            className="border-white/20 text-white hover:bg-white/10 hover:text-white"
+            className="border-white text-white bg-transparent hover:bg-white hover:text-black"
           >
             Request Access
           </Button>
