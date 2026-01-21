@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Save, Download, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import ExportFormatDialog from './ExportFormatDialog';
 
 interface ReportActionsProps {
   report: {
@@ -16,6 +18,8 @@ interface ReportActionsProps {
 }
 
 export default function ReportActions({ report, companyId, onDismiss, isSaving }: ReportActionsProps) {
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
   if (!report) return null;
 
   const handleSaveToMemory = async () => {
@@ -41,47 +45,42 @@ export default function ReportActions({ report, companyId, onDismiss, isSaving }
     }
   };
 
-  const handleExport = () => {
-    const blob = new Blob([report.content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${report.report_type}-${new Date(report.created_at).toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Report exported');
-  };
-
   return (
-    <div className="flex items-center gap-2 pt-4 border-t">
-      <Button
-        variant="secondary"
-        onClick={handleSaveToMemory}
-        disabled={isSaving}
-      >
-        {isSaving ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <Save className="h-4 w-4 mr-2" />
-        )}
-        Save to Memory
-      </Button>
-      <Button
-        variant="outline"
-        onClick={handleExport}
-      >
-        <Download className="h-4 w-4 mr-2" />
-        Export
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={onDismiss}
-      >
-        <X className="h-4 w-4 mr-2" />
-        Dismiss
-      </Button>
-    </div>
+    <>
+      <div className="flex items-center gap-2 pt-4 border-t">
+        <Button
+          variant="secondary"
+          onClick={handleSaveToMemory}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Save to Memory
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowExportDialog(true)}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={onDismiss}
+        >
+          <X className="h-4 w-4 mr-2" />
+          Dismiss
+        </Button>
+      </div>
+
+      <ExportFormatDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        report={report}
+      />
+    </>
   );
 }

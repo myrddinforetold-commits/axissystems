@@ -401,9 +401,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation: { Args: { _token: string }; Returns: boolean }
       create_company_with_owner: {
         Args: { company_name: string }
         Returns: string
+      }
+      get_invitation_by_token: {
+        Args: { _token: string }
+        Returns: {
+          company_id: string
+          company_name: string
+          email: string
+          expires_at: string
+          id: string
+          role: string
+          status: string
+        }[]
       }
       is_company_member: {
         Args: { _company_id: string; _user_id: string }

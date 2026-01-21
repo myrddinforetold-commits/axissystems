@@ -13,6 +13,7 @@ import CreateCompany from "./pages/CreateCompany";
 import CompanyShell from "./pages/CompanyShell";
 import RoleChatPage from "./pages/RoleChatPage";
 import CoSReportPage from "./pages/CoSReportPage";
+import AcceptInvitation from "./pages/AcceptInvitation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/invite/:token" element={<AcceptInvitation />} />
             <Route
               path="/companies"
               element={
