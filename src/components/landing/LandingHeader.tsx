@@ -38,19 +38,29 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       )}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/">
-          <img src={axisLogo} alt="Axis Systems" className="h-12" />
+        <Link to="/" className="-my-4">
+          <img src={axisLogo} alt="Axis Systems" className="h-20" />
         </Link>
         
-        {showCTA && onRequestAccess && (
-          <Button
-            variant="outline"
-            onClick={onRequestAccess}
-            className="border-white text-white bg-transparent hover:bg-white hover:text-black"
-          >
-            Request Access
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <Link to="/login">
+            <Button
+              variant="ghost"
+              className="text-white hover:bg-white/10 hover:text-white"
+            >
+              Login
+            </Button>
+          </Link>
+          {showCTA && onRequestAccess && (
+            <Button
+              variant="outline"
+              onClick={onRequestAccess}
+              className="border-white text-white bg-transparent hover:bg-white hover:text-black"
+            >
+              Request Access
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );
