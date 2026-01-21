@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Lock, Info } from 'lucide-react';
+import { Info, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -33,6 +33,7 @@ import {
 const editRoleSchema = z.object({
   display_name: z.string().trim().max(50, 'Display name must be less than 50 characters').optional(),
   mandate: z.string().trim().min(1, 'Mandate is required').max(1000, 'Mandate must be less than 1000 characters'),
+  system_prompt: z.string().trim().min(1, 'System instructions are required').max(5000, 'System instructions must be less than 5000 characters'),
 });
 
 type EditRoleFormData = z.infer<typeof editRoleSchema>;
@@ -65,6 +66,7 @@ export default function EditRoleDialog({
     defaultValues: {
       display_name: '',
       mandate: '',
+      system_prompt: '',
     },
   });
 
@@ -73,6 +75,7 @@ export default function EditRoleDialog({
       form.reset({
         display_name: role.display_name || '',
         mandate: role.mandate,
+        system_prompt: role.system_prompt,
       });
     }
   }, [role, form]);
@@ -87,6 +90,7 @@ export default function EditRoleDialog({
         .update({
           display_name: data.display_name?.trim() || null,
           mandate: data.mandate,
+          system_prompt: data.system_prompt,
         })
         .eq('id', role.id);
 
@@ -111,7 +115,7 @@ export default function EditRoleDialog({
         <DialogHeader>
           <DialogTitle>Edit Role: {role.name}</DialogTitle>
           <DialogDescription>
-            Customize the display name and mandate. System instructions cannot be modified.
+            Customize the display name, mandate, and system instructions.
           </DialogDescription>
         </DialogHeader>
 
@@ -167,25 +171,39 @@ export default function EditRoleDialog({
               )}
             />
 
-            <div className="rounded-lg border bg-muted/50 p-3">
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Lock className="h-4 w-4" />
-                <span>System Instructions</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">
-                      System instructions are locked after creation to ensure AI behavior remains consistent and predictable.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <p className="max-h-[120px] overflow-y-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">
-                {role.system_prompt}
-              </p>
-            </div>
+            <FormField
+              control={form.control}
+              name="system_prompt"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center gap-2">
+                    <FormLabel>System Instructions</FormLabel>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          These instructions define how the AI role behaves and responds.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter system instructions..."
+                      className="min-h-[150px] resize-none font-mono text-sm"
+                      {...field}
+                    />
+                  </FormControl>
+                  <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Changing system instructions will affect how this role responds to all users.</span>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end gap-2 pt-2">
               <Button
