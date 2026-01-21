@@ -12,6 +12,7 @@ import CompanyMemoryPanel from "@/components/memory/CompanyMemoryPanel";
 import AssignTaskDialog from "@/components/tasks/AssignTaskDialog";
 import TaskPanel from "@/components/tasks/TaskPanel";
 import ActiveTaskBanner from "@/components/tasks/ActiveTaskBanner";
+import RoleActivationWizard from "@/components/wizard/RoleActivationWizard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -36,6 +37,8 @@ export default function RoleChatPage() {
   const [showMemoryPanel, setShowMemoryPanel] = useState(false);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showActivationWizard, setShowActivationWizard] = useState(false);
+  const [wizardCompleted, setWizardCompleted] = useState(false);
 
   const handleChatError = useCallback((err: string) => {
     toast({
@@ -126,6 +129,34 @@ export default function RoleChatPage() {
 
     fetchRole();
   }, [roleId, companyId, user, loadMessages]);
+
+  // Show activation wizard for roles with no messages
+  useEffect(() => {
+    if (!loading && !isLoading && messages.length === 0 && role && !wizardCompleted) {
+      setShowActivationWizard(true);
+    }
+  }, [loading, isLoading, messages.length, role, wizardCompleted]);
+
+  const handleWizardComplete = () => {
+    setShowActivationWizard(false);
+    setWizardCompleted(true);
+  };
+
+  const handleEnableTaskMode = async () => {
+    if (!roleId) return;
+    try {
+      await supabase
+        .from("roles")
+        .update({ task_mode_enabled: true })
+        .eq("id", roleId);
+      toast({
+        title: "Task Mode enabled",
+        description: "You can now assign structured tasks to this role.",
+      });
+    } catch (error) {
+      console.error("Error enabling task mode:", error);
+    }
+  };
 
   const handleBack = () => {
     navigate(`/companies/${companyId}`);
@@ -219,17 +250,30 @@ export default function RoleChatPage() {
           onStop={() => handleStopTask(activeTask.id)}
         />
       )}
-      
-      <ChatMessages 
-        messages={messages} 
-        isLoading={isLoading}
-        pinnedMessageIds={pinnedMessageIds}
-        onPinToMemory={handlePinToMemory}
-      />
-      <ChatInput
-        onSend={sendMessage}
-        isStreaming={isStreaming}
-      />
+
+      {/* Show Activation Wizard or Chat */}
+      {showActivationWizard && role && companyId ? (
+        <RoleActivationWizard
+          role={role}
+          companyId={companyId}
+          onSendMessage={sendMessage}
+          onComplete={handleWizardComplete}
+          onEnableTaskMode={handleEnableTaskMode}
+        />
+      ) : (
+        <>
+          <ChatMessages 
+            messages={messages} 
+            isLoading={isLoading}
+            pinnedMessageIds={pinnedMessageIds}
+            onPinToMemory={handlePinToMemory}
+          />
+          <ChatInput
+            onSend={sendMessage}
+            isStreaming={isStreaming}
+          />
+        </>
+      )}
       
       {/* Memory Panel */}
       {companyId && (
