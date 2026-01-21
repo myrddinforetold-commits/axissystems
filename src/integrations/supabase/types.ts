@@ -62,6 +62,50 @@ export type Database = {
         }
         Relationships: []
       }
+      company_invitations: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: string
+          status: string
+          token: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: string
+          status?: string
+          token?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: string
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_invitations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_members: {
         Row: {
           company_id: string
@@ -308,6 +352,7 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string
+          display_name: string | null
           id: string
           mandate: string
           memory_scope: Database["public"]["Enums"]["memory_scope"]
@@ -320,6 +365,7 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by: string
+          display_name?: string | null
           id?: string
           mandate: string
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
@@ -332,6 +378,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string
+          display_name?: string | null
           id?: string
           mandate?: string
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
