@@ -1,4 +1,5 @@
-import { Bot, Pencil, Shield, Database } from 'lucide-react';
+import { Bot, Pencil, Shield, Database, MessageCircle } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,13 @@ const memoryScopeLabels: Record<string, string> = {
 };
 
 export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps) {
+  const navigate = useNavigate();
+  const { id: companyId } = useParams<{ id: string }>();
+
+  const handleOpenChat = () => {
+    navigate(`/companies/${companyId}/roles/${role.id}/chat`);
+  };
+
   return (
     <Card className="flex flex-col">
       <CardHeader className="pb-3">
@@ -70,6 +78,10 @@ export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps
             {memoryScopeLabels[role.memory_scope] || role.memory_scope}
           </Badge>
         </div>
+        <Button onClick={handleOpenChat} className="w-full mt-2">
+          <MessageCircle className="h-4 w-4 mr-2" />
+          Open Chat
+        </Button>
       </CardContent>
     </Card>
   );
