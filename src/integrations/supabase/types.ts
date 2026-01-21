@@ -88,6 +88,95 @@ export type Database = {
         }
         Relationships: []
       }
+      role_memory: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          id: string
+          memory_type: string
+          role_id: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          id?: string
+          memory_type: string
+          role_id: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          memory_type?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_memory_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_memory_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          authority_level: Database["public"]["Enums"]["authority_level"]
+          company_id: string
+          created_at: string
+          created_by: string
+          id: string
+          mandate: string
+          memory_scope: Database["public"]["Enums"]["memory_scope"]
+          name: string
+          system_prompt: string
+          updated_at: string
+        }
+        Insert: {
+          authority_level?: Database["public"]["Enums"]["authority_level"]
+          company_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          mandate: string
+          memory_scope?: Database["public"]["Enums"]["memory_scope"]
+          name: string
+          system_prompt: string
+          updated_at?: string
+        }
+        Update: {
+          authority_level?: Database["public"]["Enums"]["authority_level"]
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          mandate?: string
+          memory_scope?: Database["public"]["Enums"]["memory_scope"]
+          name?: string
+          system_prompt?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -107,7 +196,9 @@ export type Database = {
       }
     }
     Enums: {
+      authority_level: "observer" | "advisor" | "operator" | "executive"
       company_role: "owner" | "member"
+      memory_scope: "role" | "company"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -235,7 +326,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      authority_level: ["observer", "advisor", "operator", "executive"],
       company_role: ["owner", "member"],
+      memory_scope: ["role", "company"],
     },
   },
 } as const
