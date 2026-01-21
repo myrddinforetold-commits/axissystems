@@ -38,7 +38,7 @@ const createRoleSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
   mandate: z.string().trim().min(1, 'Mandate is required').max(1000, 'Mandate must be less than 1000 characters'),
   system_prompt: z.string().trim().min(1, 'System prompt is required').max(4000, 'System prompt must be less than 4000 characters'),
-  authority_level: z.enum(['observer', 'advisor', 'operator', 'executive']),
+  authority_level: z.enum(['observer', 'advisor', 'operator', 'executive', 'orchestrator']),
   memory_scope: z.enum(['role', 'company']),
 });
 
@@ -185,6 +185,7 @@ export default function CreateRoleDialog({
                       <SelectItem value="advisor">Advisor - Can suggest actions</SelectItem>
                       <SelectItem value="operator">Operator - Can execute tasks</SelectItem>
                       <SelectItem value="executive">Executive - Full autonomy</SelectItem>
+                      <SelectItem value="orchestrator">Orchestrator - Chief of Staff (read-only synthesis)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

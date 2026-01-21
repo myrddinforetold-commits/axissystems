@@ -11,6 +11,7 @@ import Companies from "./pages/Companies";
 import CreateCompany from "./pages/CreateCompany";
 import CompanyShell from "./pages/CompanyShell";
 import RoleChatPage from "./pages/RoleChatPage";
+import CoSReportPage from "./pages/CoSReportPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <RoleChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/companies/:id/roles/:roleId/dashboard"
+              element={
+                <ProtectedRoute>
+                  <CoSReportPage />
                 </ProtectedRoute>
               }
             />

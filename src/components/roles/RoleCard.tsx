@@ -1,4 +1,4 @@
-import { Bot, Pencil, Shield, Database, MessageCircle } from 'lucide-react';
+import { Bot, Pencil, Shield, Database, MessageCircle, Crown, FileText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ const authorityLabels: Record<string, string> = {
   advisor: 'Advisor',
   operator: 'Operator',
   executive: 'Executive',
+  orchestrator: 'Chief of Staff',
 };
 
 const memoryScopeLabels: Record<string, string> = {
@@ -36,21 +37,31 @@ export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps
   const navigate = useNavigate();
   const { id: companyId } = useParams<{ id: string }>();
 
+  const isOrchestrator = role.authority_level === 'orchestrator';
+
   const handleOpenChat = () => {
-    navigate(`/companies/${companyId}/roles/${role.id}/chat`);
+    if (isOrchestrator) {
+      navigate(`/companies/${companyId}/roles/${role.id}/dashboard`);
+    } else {
+      navigate(`/companies/${companyId}/roles/${role.id}/chat`);
+    }
   };
 
   return (
-    <Card className="flex flex-col">
+    <Card className={`flex flex-col ${isOrchestrator ? 'border-primary/50 bg-primary/5' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Bot className="h-5 w-5 text-primary" />
+            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isOrchestrator ? 'bg-primary/20' : 'bg-primary/10'}`}>
+              {isOrchestrator ? (
+                <Crown className="h-5 w-5 text-primary" />
+              ) : (
+                <Bot className="h-5 w-5 text-primary" />
+              )}
             </div>
             <CardTitle className="text-lg">{role.name}</CardTitle>
           </div>
-          {isOwner && (
+          {isOwner && !isOrchestrator && (
             <Button
               variant="ghost"
               size="icon"
@@ -69,7 +80,7 @@ export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps
           <p className="mt-1 line-clamp-3 text-sm">{role.mandate}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="flex items-center gap-1">
+          <Badge variant={isOrchestrator ? 'default' : 'secondary'} className="flex items-center gap-1">
             <Shield className="h-3 w-3" />
             {authorityLabels[role.authority_level] || role.authority_level}
           </Badge>
@@ -78,9 +89,18 @@ export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps
             {memoryScopeLabels[role.memory_scope] || role.memory_scope}
           </Badge>
         </div>
-        <Button onClick={handleOpenChat} className="w-full mt-2">
-          <MessageCircle className="h-4 w-4 mr-2" />
-          Open Chat
+        <Button onClick={handleOpenChat} className="w-full mt-2" variant={isOrchestrator ? 'default' : 'default'}>
+          {isOrchestrator ? (
+            <>
+              <FileText className="h-4 w-4 mr-2" />
+              Generate Report
+            </>
+          ) : (
+            <>
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Open Chat
+            </>
+          )}
         </Button>
       </CardContent>
     </Card>
