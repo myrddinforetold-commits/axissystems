@@ -59,19 +59,19 @@ export default function Login() {
         )}
       >
         <nav className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex h-20 items-center">
+          <div className="flex h-28 sm:h-32 lg:h-36 items-center">
             <Link to="/" className="flex-shrink-0">
               <img 
                 src={axisLogo} 
                 alt="Axis Systems" 
-                className="h-16 sm:h-20 lg:h-24 w-auto" 
+                className="h-32 sm:h-40 lg:h-48 w-auto" 
               />
             </Link>
           </div>
         </nav>
       </header>
       
-      <div className="flex flex-1 items-center justify-center px-4 pt-20">
+      <div className="flex flex-1 items-center justify-center px-4 pt-28 sm:pt-32 lg:pt-36">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">Sign In</CardTitle>
