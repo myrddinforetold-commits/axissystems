@@ -3,8 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, LogOut, ArrowLeft, Users } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Building2, LogOut, ArrowLeft, Users, Bot } from 'lucide-react';
+import TeamTab from '@/components/company/TeamTab';
+import RolesTab from '@/components/roles/RolesTab';
 
 interface Company {
   id: string;
@@ -99,6 +102,8 @@ export default function CompanyShell() {
     navigate('/login');
   };
 
+  const isOwner = userRole === 'owner';
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -150,34 +155,26 @@ export default function CompanyShell() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Team Members
-            </CardTitle>
-            <CardDescription>
-              {members.length} member{members.length !== 1 ? 's' : ''} in this company
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-medium">{member.display_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {member.user_id === user?.id ? 'You' : ''}
-                    </p>
-                  </div>
-                  <span className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
-                    {member.role === 'owner' ? 'Owner' : 'Member'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="team" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="team" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Team
+            </TabsTrigger>
+            <TabsTrigger value="roles" className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />
+              Roles
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="team">
+            <TeamTab members={members} currentUserId={user?.id} />
+          </TabsContent>
+
+          <TabsContent value="roles">
+            <RolesTab companyId={company.id} isOwner={isOwner} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
