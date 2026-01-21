@@ -10,6 +10,7 @@ import Signup from "./pages/Signup";
 import Companies from "./pages/Companies";
 import CreateCompany from "./pages/CreateCompany";
 import CompanyShell from "./pages/CompanyShell";
+import RoleChatPage from "./pages/RoleChatPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CompanyShell />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/companies/:id/roles/:roleId/chat"
+              element={
+                <ProtectedRoute>
+                  <RoleChatPage />
                 </ProtectedRoute>
               }
             />

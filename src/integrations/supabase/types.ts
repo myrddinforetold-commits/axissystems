@@ -130,6 +130,48 @@ export type Database = {
           },
         ]
       }
+      role_messages: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          id: string
+          role_id: string
+          sender: Database["public"]["Enums"]["message_sender"]
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          id?: string
+          role_id: string
+          sender: Database["public"]["Enums"]["message_sender"]
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          role_id?: string
+          sender?: Database["public"]["Enums"]["message_sender"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_messages_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           authority_level: Database["public"]["Enums"]["authority_level"]
@@ -199,6 +241,7 @@ export type Database = {
       authority_level: "observer" | "advisor" | "operator" | "executive"
       company_role: "owner" | "member"
       memory_scope: "role" | "company"
+      message_sender: "user" | "ai"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -329,6 +372,7 @@ export const Constants = {
       authority_level: ["observer", "advisor", "operator", "executive"],
       company_role: ["owner", "member"],
       memory_scope: ["role", "company"],
+      message_sender: ["user", "ai"],
     },
   },
 } as const
