@@ -42,14 +42,18 @@ serve(async (req) => {
     // Create service client for inserting AI responses
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
+    // Validate user token using getClaims
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("Auth claims error:", claimsError);
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = claimsData.claims.sub;
 
     // Fetch role data (RLS will ensure user has access)
     const { data: role, error: roleError } = await supabaseUser
