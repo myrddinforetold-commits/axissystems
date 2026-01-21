@@ -41,7 +41,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       <div className="absolute inset-0 bg-alien-metallic bg-[length:200%_100%] animate-holographic-shift" />
       
       {/* Dark overlay for depth */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       
       {/* Metallic shimmer effect */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
