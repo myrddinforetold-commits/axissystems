@@ -91,6 +91,15 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Alien metallic rainbow colors */
+    --alien-deep-space: 240 50% 14%;
+    --alien-purple: 277 100% 31%;
+    --alien-teal: 184 100% 19%;
+    --alien-emerald: 131 100% 23%;
+    --alien-gold: 44 100% 52%;
+    --alien-copper: 20 100% 37%;
+    --alien-cyan: 184 100% 50%;
   }
 }
 
@@ -101,5 +110,37 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .bg-alien-metallic {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--alien-deep-space)),
+      hsl(var(--alien-purple)),
+      hsl(var(--alien-teal)),
+      hsl(var(--alien-emerald)),
+      hsl(var(--alien-gold)),
+      hsl(var(--alien-copper)),
+      hsl(var(--alien-purple)),
+      hsl(var(--alien-deep-space))
+    );
+  }
+
+  .bg-alien-border {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--alien-cyan)),
+      hsl(var(--alien-purple)),
+      hsl(var(--alien-teal)),
+      hsl(var(--alien-cyan)),
+      transparent
+    );
+  }
+
+  .border-alien-button {
+    border-color: hsl(var(--alien-cyan) / 0.4);
   }
 }
