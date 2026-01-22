@@ -713,6 +713,9 @@ Do you have any follow-up suggestions?`
 
     // Log task completion/blocked status to role's chat as audit trail
     if (newStatus === "completed") {
+      const MAX_OUTPUT_PREVIEW = 2500;
+      const isOutputTruncated = modelOutput.length > MAX_OUTPUT_PREVIEW;
+      
       const completionMessage = `✅ **Task Completed**
 
 **Task:** ${task.title}
@@ -720,7 +723,7 @@ Do you have any follow-up suggestions?`
 ---
 
 **Output:**
-${modelOutput.substring(0, 1000)}${modelOutput.length > 1000 ? '...' : ''}
+${modelOutput.substring(0, MAX_OUTPUT_PREVIEW)}${isOutputTruncated ? `\n\n---\n\n📄 *Output truncated (${modelOutput.length} chars total). Full output saved to task history.*` : ''}
 
 ---
 
