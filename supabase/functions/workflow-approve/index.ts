@@ -177,6 +177,65 @@ Deno.serve(async (req) => {
           if (messageError) {
             console.error("Error inserting memo message:", messageError);
           }
+
+          // Auto-create objective from memo directive and activate the role
+          try {
+            const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+            if (LOVABLE_API_KEY) {
+              const objectivePrompt = `Extract a single actionable objective from this directive memo. Return JSON only: {"title": "short title max 50 chars", "description": "one sentence description max 100 chars"}
+
+Memo:
+${contentToUse}`;
+
+              const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash",
+                  messages: [{ role: "user", content: objectivePrompt }],
+                  response_format: { type: "json_object" },
+                }),
+              });
+
+              if (aiResponse.ok) {
+                const aiData = await aiResponse.json();
+                const objectiveText = aiData.choices?.[0]?.message?.content;
+                if (objectiveText) {
+                  const objectiveData = JSON.parse(objectiveText);
+                  
+                  // Create objective for target role
+                  const { error: objError } = await supabaseService.from("role_objectives").insert({
+                    role_id: request.target_role_id,
+                    company_id: request.company_id,
+                    title: objectiveData.title,
+                    description: objectiveData.description,
+                    status: "active",
+                    priority: 1,
+                    created_by: user.id,
+                  });
+
+                  if (!objError) {
+                    // Mark role as activated (skip wizard)
+                    await supabaseService
+                      .from("roles")
+                      .update({ is_activated: true })
+                      .eq("id", request.target_role_id);
+                    
+                    console.log(`Auto-created objective for role from memo: ${objectiveData.title}`);
+                  } else {
+                    console.error("Error creating objective from memo:", objError);
+                  }
+                }
+              }
+            }
+          } catch (objErr) {
+            console.error("Failed to auto-create objective from memo:", objErr);
+            // Non-fatal - memo was still sent
+          }
+
           break;
         }
 
@@ -196,11 +255,14 @@ Deno.serve(async (req) => {
             };
           }
 
-          // Create the task
+          // Use target_role_id if specified, otherwise fall back to requesting_role_id
+          const targetRoleId = request.target_role_id || request.requesting_role_id;
+
+          // Create the task for the target role
           const { error: taskError } = await supabaseService
             .from("tasks")
             .insert({
-              role_id: request.requesting_role_id,
+              role_id: targetRoleId,
               company_id: request.company_id,
               assigned_by: user.id,
               title: taskDetails.title || request.summary,
