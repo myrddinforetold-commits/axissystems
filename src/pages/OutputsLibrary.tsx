@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -352,17 +353,20 @@ export default function OutputsLibrary() {
 
       {/* Output Viewer Modal */}
       <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               {selectedTask && getStatusIcon(selectedTask.status)}
               {selectedTask?.title}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              View full task output and details
+            </DialogDescription>
           </DialogHeader>
           
           {selectedTask && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col flex-1 min-h-0 space-y-4">
+              <div className="flex-shrink-0 flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Bot className="h-3 w-3" />
                   {selectedTask.role_name}
@@ -374,13 +378,13 @@ export default function OutputsLibrary() {
               </div>
 
               {selectedTask.completion_summary && (
-                <div className="rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none">
+                <div className="flex-shrink-0 rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none">
                   <strong>Summary:</strong>
                   <ReactMarkdown>{selectedTask.completion_summary}</ReactMarkdown>
                 </div>
               )}
 
-              <ScrollArea className="h-[500px] rounded-md border p-4">
+              <ScrollArea className="flex-1 min-h-[200px] rounded-md border p-4">
                 {selectedTask.latest_output ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown>{selectedTask.latest_output}</ReactMarkdown>
@@ -392,7 +396,7 @@ export default function OutputsLibrary() {
                 )}
               </ScrollArea>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex-shrink-0 flex justify-end gap-2">
                 {selectedTask.latest_output && (
                   <>
                     <Button variant="outline" onClick={() => handlePinToMemory(selectedTask)}>
