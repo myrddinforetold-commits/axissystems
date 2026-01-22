@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -332,16 +333,18 @@ export default function RequestReviewDialog({
                 {reviewOutputContent.completion_summary && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Summary</Label>
-                    <p className="text-sm">{reviewOutputContent.completion_summary}</p>
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{reviewOutputContent.completion_summary}</ReactMarkdown>
+                    </div>
                   </div>
                 )}
                 <Separator />
                 <div>
                   <Label className="text-xs text-muted-foreground">Task Output</Label>
                   <div className="mt-2 rounded-md border bg-background p-3 max-h-64 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm">
-                      {reviewOutputContent.output}
-                    </pre>
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+                      <ReactMarkdown>{reviewOutputContent.output}</ReactMarkdown>
+                    </div>
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
