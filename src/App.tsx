@@ -16,6 +16,7 @@ import CompanyShell from "./pages/CompanyShell";
 import RoleChatPage from "./pages/RoleChatPage";
 import CoSReportPage from "./pages/CoSReportPage";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import OutputsLibrary from "./pages/OutputsLibrary";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -58,6 +59,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CompanyShell />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/companies/:id/outputs"
+              element={
+                <ProtectedRoute>
+                  <OutputsLibrary />
                 </ProtectedRoute>
               }
             />
