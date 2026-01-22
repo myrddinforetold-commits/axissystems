@@ -33,7 +33,7 @@ export function AdminLayout() {
           {/* Logo */}
           <div className="flex h-20 items-center border-b border-border px-4">
             <Link to="/admin">
-              <img src={axisLogo} alt="Axis Systems" className="h-12 w-auto" />
+              <img src={axisLogo} alt="Axis Systems" className="h-12 w-auto invert dark:invert-0" />
             </Link>
             <span className="ml-2 text-xs font-medium text-primary">ADMIN</span>
           </div>
