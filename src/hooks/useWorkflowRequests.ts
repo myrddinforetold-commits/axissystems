@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -23,6 +23,10 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
   const [isLoading, setIsLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
 
+  // Store onError in a ref to avoid dependency issues causing infinite re-renders
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
   const loadRequests = useCallback(async () => {
     if (!companyId) return;
 
@@ -44,9 +48,9 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
       setPendingCount(requestsData?.filter(r => r.status === 'pending').length || 0);
     } catch (err) {
       console.error('Error loading workflow requests:', err);
-      onError?.('Failed to load workflow requests');
+      onErrorRef.current?.('Failed to load workflow requests');
     }
-  }, [companyId, onError]);
+  }, [companyId]);
 
   const loadRolesWithStatus = useCallback(async () => {
     if (!companyId) return;
@@ -95,9 +99,9 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
       setRolesWithStatus(enrichedRoles);
     } catch (err) {
       console.error('Error loading roles with status:', err);
-      onError?.('Failed to load roles');
+      onErrorRef.current?.('Failed to load roles');
     }
-  }, [companyId, onError]);
+  }, [companyId]);
 
   const loadAll = useCallback(async () => {
     setIsLoading(true);
