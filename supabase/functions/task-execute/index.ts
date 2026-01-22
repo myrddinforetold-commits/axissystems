@@ -59,25 +59,36 @@ serve(async (req) => {
       );
     }
 
-    // User client for RLS-aware reads
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    // Check if this is a service role call (server-to-server)
+    const token = authHeader.replace("Bearer ", "");
+    const isServiceRole = token === supabaseServiceKey;
 
     // Service client for writes (bypasses RLS for task_attempts)
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid authorization" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // For service role calls, we skip user verification and use service client for reads too
+    let supabaseClient;
+    if (isServiceRole) {
+      supabaseClient = supabaseService;
+    } else {
+      // User client for RLS-aware reads
+      const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } }
+      });
+
+      // Verify user
+      const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Invalid authorization" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      supabaseClient = supabaseUser;
     }
 
     // Fetch task
-    const { data: task, error: taskError } = await supabaseUser
+    const { data: task, error: taskError } = await supabaseClient
       .from("tasks")
       .select("*")
       .eq("id", task_id)
@@ -120,7 +131,7 @@ serve(async (req) => {
     }
 
     // Fetch role
-    const { data: role, error: roleError } = await supabaseUser
+    const { data: role, error: roleError } = await supabaseClient
       .from("roles")
       .select("name, mandate, system_prompt, memory_scope")
       .eq("id", task.role_id)
@@ -134,7 +145,7 @@ serve(async (req) => {
     }
 
     // Fetch previous attempts for context
-    const { data: previousAttempts } = await supabaseUser
+    const { data: previousAttempts } = await supabaseClient
       .from("task_attempts")
       .select("attempt_number, model_output, evaluation_result, evaluation_reason")
       .eq("task_id", task_id)
@@ -151,7 +162,7 @@ serve(async (req) => {
 
     // Load role memory if applicable
     let memoryContext = "";
-    const { data: roleMemories } = await supabaseUser
+    const { data: roleMemories } = await supabaseClient
       .from("role_memory")
       .select("content, memory_type")
       .eq("role_id", task.role_id)
@@ -165,7 +176,7 @@ serve(async (req) => {
 
     // Load company memory if memory_scope is company
     if (role.memory_scope === "company") {
-      const { data: companyMemories } = await supabaseUser
+      const { data: companyMemories } = await supabaseClient
         .from("company_memory")
         .select("label, content")
         .eq("company_id", task.company_id)
@@ -547,6 +558,33 @@ Do you have any follow-up suggestions?`
       .eq("id", task_id)
       .single();
 
+    const shouldRetry = evaluationResult === "fail" && attemptNumber < task.max_attempts;
+
+    // Auto-continue execution if retry needed (self-invoke for next attempt)
+    if (shouldRetry) {
+      const continueExecution = async () => {
+        try {
+          await new Promise(r => setTimeout(r, 2000)); // 2 second delay between attempts
+          await fetch(
+            `${supabaseUrl}/functions/v1/task-execute`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({ task_id }),
+            }
+          );
+        } catch (err) {
+          console.error("Failed to continue task execution:", err);
+        }
+      };
+      
+      // Use EdgeRuntime.waitUntil for background execution
+      (globalThis as any).EdgeRuntime?.waitUntil?.(continueExecution()) ?? continueExecution();
+    }
+
     return new Response(
       JSON.stringify({ 
         task: updatedTask,
@@ -556,7 +594,7 @@ Do you have any follow-up suggestions?`
           evaluation_result: evaluationResult,
           evaluation_reason: evaluationReason,
         },
-        should_retry: evaluationResult === "fail" && attemptNumber < task.max_attempts
+        should_retry: shouldRetry
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

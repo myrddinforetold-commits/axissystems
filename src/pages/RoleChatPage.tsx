@@ -102,6 +102,58 @@ export default function RoleChatPage() {
     onError: handleTaskError,
   });
 
+  // Realtime subscription for task updates
+  useEffect(() => {
+    if (!roleId) return;
+    
+    // Subscribe to task changes for this role
+    const taskChannel = supabase
+      .channel(`tasks-${roleId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `role_id=eq.${roleId}`,
+        },
+        () => {
+          // Reload tasks when any change occurs
+          loadTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(taskChannel);
+    };
+  }, [roleId, loadTasks]);
+
+  // Realtime subscription for attempt updates
+  useEffect(() => {
+    if (!activeTask?.id) return;
+    
+    const attemptChannel = supabase
+      .channel(`attempts-${activeTask.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'task_attempts',
+          filter: `task_id=eq.${activeTask.id}`,
+        },
+        () => {
+          loadAttempts(activeTask.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(attemptChannel);
+    };
+  }, [activeTask?.id, loadAttempts]);
+
   useEffect(() => {
     async function fetchRole() {
       if (!roleId || !companyId || !user) {
@@ -322,6 +374,7 @@ export default function RoleChatPage() {
       {activeTask && (activeTask.status === "running" || activeTask.status === "pending") && (
         <ActiveTaskBanner
           task={activeTask}
+          attempts={attempts}
           isExecuting={isExecuting}
           onViewDetails={() => setShowTaskPanel(true)}
           onStop={() => handleStopTask(activeTask.id)}
