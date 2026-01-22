@@ -67,6 +67,7 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
+          is_grounded: boolean
           set_by: string
           stage: string
           updated_at: string
@@ -75,6 +76,7 @@ export type Database = {
           company_id: string
           created_at?: string
           id?: string
+          is_grounded?: boolean
           set_by: string
           stage?: string
           updated_at?: string
@@ -83,6 +85,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           id?: string
+          is_grounded?: boolean
           set_by?: string
           stage?: string
           updated_at?: string
@@ -90,6 +93,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "company_context_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_grounding: {
+        Row: {
+          aspirations: Json
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          constraints: Json
+          created_at: string
+          current_state_summary: Json | null
+          entities: Json
+          id: string
+          intended_customer: string | null
+          not_yet_exists: Json
+          products: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          aspirations?: Json
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          constraints?: Json
+          created_at?: string
+          current_state_summary?: Json | null
+          entities?: Json
+          id?: string
+          intended_customer?: string | null
+          not_yet_exists?: Json
+          products?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          aspirations?: Json
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          constraints?: Json
+          created_at?: string
+          current_state_summary?: Json | null
+          entities?: Json
+          id?: string
+          intended_customer?: string | null
+          not_yet_exists?: Json
+          products?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_grounding_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: true
             referencedRelation: "companies"
