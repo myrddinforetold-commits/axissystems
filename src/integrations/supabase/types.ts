@@ -399,6 +399,63 @@ export type Database = {
           },
         ]
       }
+      output_actions: {
+        Row: {
+          action_data: Json | null
+          action_type: Database["public"]["Enums"]["output_action_type"]
+          company_id: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          status: string
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_data?: Json | null
+          action_type: Database["public"]["Enums"]["output_action_type"]
+          company_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_data?: Json | null
+          action_type?: Database["public"]["Enums"]["output_action_type"]
+          company_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "output_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "output_actions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -944,6 +1001,13 @@ export type Database = {
       company_role: "owner" | "member"
       memory_scope: "role" | "company"
       message_sender: "user" | "ai"
+      output_action_type:
+        | "copy_to_lovable"
+        | "export_document"
+        | "create_followup"
+        | "pin_to_memory"
+        | "mark_external"
+        | "delegate_to_human"
       task_status:
         | "pending"
         | "running"
@@ -1098,6 +1162,14 @@ export const Constants = {
       company_role: ["owner", "member"],
       memory_scope: ["role", "company"],
       message_sender: ["user", "ai"],
+      output_action_type: [
+        "copy_to_lovable",
+        "export_document",
+        "create_followup",
+        "pin_to_memory",
+        "mark_external",
+        "delegate_to_human",
+      ],
       task_status: [
         "pending",
         "running",
