@@ -160,6 +160,48 @@ serve(async (req) => {
         ).join("\n\n");
     }
 
+    // Load company grounding (source of truth for factual context)
+    let groundingContext = "";
+    const { data: grounding } = await supabaseClient
+      .from("company_grounding")
+      .select("*")
+      .eq("company_id", task.company_id)
+      .eq("status", "confirmed")
+      .single();
+
+    if (grounding) {
+      groundingContext = `\n\n## COMPANY GROUNDING (Source of Truth)
+CRITICAL: The following is the ONLY verified factual information about this company. 
+Do NOT invent metrics, customer data, prospect information, or business outcomes beyond what is stated here.
+
+### Intended Customer:
+${grounding.intended_customer || "Not specified"}
+
+### What Exists (Products/Services):
+${Array.isArray(grounding.products) ? grounding.products.map((p: any) => `- ${p.name}: ${p.description || ""}`).join("\n") : "None specified"}
+
+### Entities (People, Systems, Assets):
+${Array.isArray(grounding.entities) ? grounding.entities.map((e: any) => `- ${e.name}: ${e.description || ""}`).join("\n") : "None specified"}
+
+### What Does NOT Exist Yet:
+${Array.isArray(grounding.not_yet_exists) ? grounding.not_yet_exists.map((n: any) => `- ${n.name}: ${n.description || ""}`).join("\n") : "Nothing specified"}
+
+### Aspirations:
+${Array.isArray(grounding.aspirations) ? grounding.aspirations.map((a: any) => `- ${a.description || a}`).join("\n") : "None specified"}
+
+### Constraints:
+${Array.isArray(grounding.constraints) ? grounding.constraints.map((c: any) => `- ${c.description || c}`).join("\n") : "None specified"}
+
+### Current State Summary:
+${grounding.current_state_summary ? JSON.stringify(grounding.current_state_summary) : "Not available"}
+`;
+    } else {
+      groundingContext = `\n\n## COMPANY GROUNDING
+WARNING: No confirmed grounding data available. You have LIMITED factual context about this company.
+Do NOT invent business metrics, customer data, or outcomes. If information is needed but not available, explicitly state what data is missing.
+`;
+    }
+
     // Load role memory if applicable
     let memoryContext = "";
     const { data: roleMemories } = await supabaseClient
@@ -174,19 +216,17 @@ serve(async (req) => {
         roleMemories.map(m => `- [${m.memory_type}] ${m.content}`).join("\n");
     }
 
-    // Load company memory if memory_scope is company
-    if (role.memory_scope === "company") {
-      const { data: companyMemories } = await supabaseClient
-        .from("company_memory")
-        .select("label, content")
-        .eq("company_id", task.company_id)
-        .order("created_at", { ascending: false })
-        .limit(15);
+    // Load company memory (pinned facts from conversations)
+    const { data: companyMemories } = await supabaseClient
+      .from("company_memory")
+      .select("label, content")
+      .eq("company_id", task.company_id)
+      .order("created_at", { ascending: false })
+      .limit(15);
 
-      if (companyMemories && companyMemories.length > 0) {
-        memoryContext += "\n\n## Company Memory:\n" + 
-          companyMemories.map(m => `- [${m.label || "note"}] ${m.content}`).join("\n");
-      }
+    if (companyMemories && companyMemories.length > 0) {
+      memoryContext += "\n\n## Company Memory (Verified Notes):\n" + 
+        companyMemories.map(m => `- [${m.label || "note"}] ${m.content}`).join("\n");
     }
 
     const attemptNumber = task.current_attempt + 1;
@@ -198,6 +238,7 @@ You are executing a specific task. Your output must directly address the task re
 
 ## Your Role Mandate:
 ${role.mandate}
+${groundingContext}
 ${memoryContext}
 
 ## Task Details:
@@ -207,7 +248,28 @@ Description: ${task.description}
 ## Completion Criteria:
 ${task.completion_criteria}
 
-## Important Instructions:
+## CRITICAL ANTI-HALLUCINATION RULES:
+1. ONLY reference facts explicitly stated in Company Grounding or Company Memory above
+2. Do NOT invent metrics, percentages, customer counts, revenue figures, or conversion rates
+3. Do NOT claim to have sent emails, accessed CRMs, or performed external actions you cannot actually do
+4. Do NOT fabricate prospect names, company names, or specific business outcomes
+5. If the task requires data you don't have, your output MUST state: "This task requires [specific data] which is not available. To proceed, I need: [what's needed]."
+6. If you can only partially complete the task with available information, clearly distinguish between facts and recommendations/assumptions
+
+## Your Actual Capabilities:
+- Research and analysis (based on provided context)
+- Creating documents, plans, specifications, and frameworks
+- Synthesizing information and making recommendations
+- Communicating with other roles via memos
+
+## What You CANNOT Do (do not claim to have done these):
+- Send external emails or messages
+- Access CRM, analytics, or external databases
+- Execute code or deploy software
+- Make phone calls or schedule meetings
+- Access real-time market data (unless provided)
+
+## Other Instructions:
 1. Focus solely on completing the task as described
 2. Your output must satisfy the completion criteria
 3. Be thorough but concise
