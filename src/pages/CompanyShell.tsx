@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Building2, LogOut, ArrowLeft, Users, Bot, Activity } from 'lucide-react';
+import { Building2, LogOut, ArrowLeft, Users, Bot, Activity, LayoutDashboard, Library } from 'lucide-react';
 import TeamTab from '@/components/company/TeamTab';
 import RolesTab from '@/components/roles/RolesTab';
 import WorkflowTab from '@/components/workflow/WorkflowTab';
+import CompanyDashboard from '@/components/dashboard/CompanyDashboard';
 
 interface Company {
   id: string;
@@ -166,29 +167,47 @@ export default function CompanyShell() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <Tabs defaultValue="team" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="team" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Team
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="flex items-center gap-2">
-              <Bot className="h-4 w-4" />
-              Roles
-            </TabsTrigger>
-            {isOwner && (
-              <TabsTrigger value="workflow" className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Workflow
-                {pendingWorkflowCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
-                    {pendingWorkflowCount}
-                  </Badge>
-                )}
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
               </TabsTrigger>
-            )}
-          </TabsList>
+              <TabsTrigger value="team" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Team
+              </TabsTrigger>
+              <TabsTrigger value="roles" className="flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                Roles
+              </TabsTrigger>
+              {isOwner && (
+                <TabsTrigger value="workflow" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Workflow
+                  {pendingWorkflowCount > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
+                      {pendingWorkflowCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate(`/companies/${company.id}/outputs`)}
+            >
+              <Library className="mr-2 h-4 w-4" />
+              Outputs Library
+            </Button>
+          </div>
+
+          <TabsContent value="dashboard">
+            <CompanyDashboard companyId={company.id} />
+          </TabsContent>
 
           <TabsContent value="team">
             <TeamTab 
