@@ -15,6 +15,8 @@ export interface Task {
   completion_summary: string | null;
   created_at: string;
   updated_at: string;
+  depends_on: string[];
+  dependency_status: "ready" | "waiting_on_dependencies" | "dependencies_met";
 }
 
 export interface TaskAttempt {
@@ -32,6 +34,7 @@ export interface TaskInput {
   description: string;
   completion_criteria: string;
   max_attempts: number;
+  depends_on?: string[];
 }
 
 interface UseTaskExecutionOptions {
@@ -132,6 +135,7 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
           completion_criteria: input.completion_criteria,
           max_attempts: input.max_attempts,
           status: "pending",
+          depends_on: input.depends_on || [],
         })
         .select()
         .single();

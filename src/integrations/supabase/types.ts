@@ -658,6 +658,8 @@ export type Database = {
           completion_summary: string | null
           created_at: string
           current_attempt: number
+          dependency_status: string | null
+          depends_on: string[] | null
           description: string
           id: string
           max_attempts: number
@@ -673,6 +675,8 @@ export type Database = {
           completion_summary?: string | null
           created_at?: string
           current_attempt?: number
+          dependency_status?: string | null
+          depends_on?: string[] | null
           description: string
           id?: string
           max_attempts?: number
@@ -688,6 +692,8 @@ export type Database = {
           completion_summary?: string | null
           created_at?: string
           current_attempt?: number
+          dependency_status?: string | null
+          depends_on?: string[] | null
           description?: string
           id?: string
           max_attempts?: number

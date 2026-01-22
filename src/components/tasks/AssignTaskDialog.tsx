@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
+import TaskDependencySelect from "./TaskDependencySelect";
 import type { TaskInput } from "@/hooks/useTaskExecution";
 
 const formSchema = z.object({
@@ -32,6 +33,7 @@ const formSchema = z.object({
   description: z.string().min(1, "Description is required"),
   completion_criteria: z.string().min(1, "Completion criteria is required"),
   max_attempts: z.number().min(1).max(10),
+  depends_on: z.array(z.string()).default([]),
 });
 
 interface AssignTaskDialogProps {
@@ -39,6 +41,8 @@ interface AssignTaskDialogProps {
   onOpenChange: (open: boolean) => void;
   onAssign: (input: TaskInput) => Promise<void>;
   roleName: string;
+  roleId: string;
+  companyId: string;
 }
 
 export default function AssignTaskDialog({
@@ -46,6 +50,8 @@ export default function AssignTaskDialog({
   onOpenChange,
   onAssign,
   roleName,
+  roleId,
+  companyId,
 }: AssignTaskDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,10 +62,11 @@ export default function AssignTaskDialog({
       description: "",
       completion_criteria: "",
       max_attempts: 5,
+      depends_on: [],
     },
   });
-
   const maxAttempts = form.watch("max_attempts");
+  const dependsOn = form.watch("depends_on");
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
@@ -69,6 +76,7 @@ export default function AssignTaskDialog({
         description: values.description,
         completion_criteria: values.completion_criteria,
         max_attempts: values.max_attempts,
+        depends_on: values.depends_on,
       });
       form.reset();
       onOpenChange(false);
@@ -147,6 +155,28 @@ export default function AssignTaskDialog({
                   </FormControl>
                   <FormDescription>
                     Define clear, measurable criteria for success. The AI will be evaluated against these.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="depends_on"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dependencies</FormLabel>
+                  <FormControl>
+                    <TaskDependencySelect
+                      roleId={roleId}
+                      companyId={companyId}
+                      selectedIds={field.value}
+                      onSelectionChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Select tasks that must complete before this one starts.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

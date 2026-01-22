@@ -1,16 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import TaskStatusBadge from "./TaskStatusBadge";
 import TaskAttemptCard from "./TaskAttemptCard";
 import StopTaskButton from "./StopTaskButton";
+import DependencyStatusBadge from "./DependencyStatusBadge";
 import type { Task, TaskAttempt } from "@/hooks/useTaskExecution";
+import { Link2 } from "lucide-react";
 
 interface TaskDetailViewProps {
   task: Task;
   attempts: TaskAttempt[];
   isExecuting: boolean;
   onStop: () => Promise<void>;
+  allTasks?: Task[];
 }
 
 export default function TaskDetailView({
@@ -18,8 +22,14 @@ export default function TaskDetailView({
   attempts,
   isExecuting,
   onStop,
+  allTasks = [],
 }: TaskDetailViewProps) {
   const canStop = task.status === "running" || task.status === "pending";
+  
+  // Get dependency task names
+  const dependencyTasks = task.depends_on?.length > 0
+    ? allTasks.filter(t => task.depends_on.includes(t.id))
+    : [];
 
   return (
     <div className="space-y-4">
@@ -28,11 +38,17 @@ export default function TaskDetailView({
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1 min-w-0">
               <CardTitle className="text-lg truncate">{task.title}</CardTitle>
-              <TaskStatusBadge
-                status={task.status}
-                currentAttempt={task.current_attempt}
-                maxAttempts={task.max_attempts}
-              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <TaskStatusBadge
+                  status={task.status}
+                  currentAttempt={task.current_attempt}
+                  maxAttempts={task.max_attempts}
+                />
+                <DependencyStatusBadge 
+                  status={task.dependency_status} 
+                  dependencyCount={task.depends_on?.length || 0}
+                />
+              </div>
             </div>
             {canStop && (
               <StopTaskButton onStop={onStop} isExecuting={isExecuting} size="sm" />
@@ -56,6 +72,26 @@ export default function TaskDetailView({
               <p className="text-sm bg-primary/10 border border-primary/20 rounded-md p-2 whitespace-pre-wrap">
                 {task.completion_summary}
               </p>
+            </div>
+          )}
+          {dependencyTasks.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                Dependencies ({dependencyTasks.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {dependencyTasks.map(dep => (
+                  <Badge
+                    key={dep.id}
+                    variant={dep.status === "completed" ? "default" : "secondary"}
+                    className="text-xs"
+                  >
+                    {dep.title.substring(0, 25)}{dep.title.length > 25 ? "..." : ""}
+                    {dep.status === "completed" && " ✓"}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
