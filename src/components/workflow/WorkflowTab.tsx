@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Activity, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play } from 'lucide-react';
 import { useWorkflowRequests, type WorkflowRequest } from '@/hooks/useWorkflowRequests';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import RoleStatusCard from './RoleStatusCard';
 import WorkflowRequestCard from './WorkflowRequestCard';
@@ -18,6 +20,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
   const { user } = useAuth();
   const [selectedRequest, setSelectedRequest] = useState<WorkflowRequest | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isKickingOff, setIsKickingOff] = useState(false);
   
   const {
     requests,
@@ -33,6 +36,43 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const resolvedRequests = requests.filter(r => r.status !== 'pending');
+
+  // Find idle activated roles that could be kicked off
+  const idleActivatedRoles = rolesWithStatus.filter(
+    (role) => (role as any).is_activated && role.workflow_status === 'idle'
+  );
+
+  const handleKickoffIdleRoles = async () => {
+    if (idleActivatedRoles.length === 0) {
+      toast.info('No idle roles to start');
+      return;
+    }
+
+    setIsKickingOff(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const role of idleActivatedRoles) {
+      try {
+        await supabase.functions.invoke('role-autonomous-loop', {
+          body: { role_id: role.id },
+        });
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to kickoff role ${role.name}:`, error);
+        errorCount++;
+      }
+    }
+
+    setIsKickingOff(false);
+
+    if (successCount > 0) {
+      toast.success(`Started ${successCount} role${successCount > 1 ? 's' : ''}`);
+    }
+    if (errorCount > 0) {
+      toast.error(`Failed to start ${errorCount} role${errorCount > 1 ? 's' : ''}`);
+    }
+  };
 
   const handleApprove = async (editedContent?: string, notes?: string) => {
     if (!selectedRequest || !user) return;
@@ -98,11 +138,26 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
     <div className="space-y-6">
       {/* Role Overview Section */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="h-5 w-5" />
             Role Overview
           </CardTitle>
+          {idleActivatedRoles.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleKickoffIdleRoles}
+              disabled={isKickingOff}
+            >
+              {isKickingOff ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              Start Idle Roles ({idleActivatedRoles.length})
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {rolesWithStatus.length === 0 ? (
@@ -157,7 +212,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
             <TabsContent value="pending" className="space-y-3">
               {pendingRequests.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
+                  <CheckCircle2 className="h-10 w-10 text-primary mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
                     No pending requests. All caught up!
                   </p>
