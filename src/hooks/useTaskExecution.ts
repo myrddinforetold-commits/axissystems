@@ -9,7 +9,7 @@ export interface Task {
   title: string;
   description: string;
   completion_criteria: string;
-  status: "pending" | "running" | "completed" | "blocked" | "stopped" | "archived";
+  status: "pending" | "running" | "completed" | "blocked" | "stopped" | "archived" | "system_alert";
   max_attempts: number;
   current_attempt: number;
   completion_summary: string | null;
@@ -299,7 +299,7 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
         .eq("id", taskId)
         .single();
 
-      if (currentTask?.status === "stopped" || currentTask?.status === "completed" || currentTask?.status === "blocked") {
+      if (currentTask?.status === "stopped" || currentTask?.status === "completed" || currentTask?.status === "blocked" || currentTask?.status === "system_alert") {
         break;
       }
 

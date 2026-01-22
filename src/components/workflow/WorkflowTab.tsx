@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X, RefreshCw, Trash2 } from 'lucide-react';
+import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X, RefreshCw, Trash2, AlertTriangle } from 'lucide-react';
 import { useWorkflowRequests, type WorkflowRequest } from '@/hooks/useWorkflowRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import RoleStatusCard from './RoleStatusCard';
 import WorkflowRequestCard from './WorkflowRequestCard';
 import RequestReviewDialog from './RequestReviewDialog';
+import SystemAlertsTab from './SystemAlertsTab';
 
 interface WorkflowTabProps {
   companyId: string;
@@ -24,6 +25,8 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isKickingOff, setIsKickingOff] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dlqCount, setDlqCount] = useState(0);
+  const [activeMainTab, setActiveMainTab] = useState('requests');
   
   const {
     requests,
@@ -41,9 +44,24 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
     onError: (error) => toast.error(error),
   });
 
+  // Load DLQ count
+  const loadDlqCount = async () => {
+    const { count } = await supabase
+      .from('dead_letter_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('resolved_at', null);
+    setDlqCount(count || 0);
+  };
+
+  useEffect(() => {
+    loadDlqCount();
+  }, [companyId]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await loadAll();
+    await loadDlqCount();
     setIsRefreshing(false);
     toast.success('Workflow updated');
   };
@@ -221,184 +239,214 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Role Overview Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Activity className="h-5 w-5" />
-            Role Overview
-          </CardTitle>
-          {idleActivatedRoles.length > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleKickoffIdleRoles}
-              disabled={isKickingOff}
-            >
-              {isKickingOff ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
-              Start Idle Roles ({idleActivatedRoles.length})
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {rolesWithStatus.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No roles configured. Create roles to see their workflow status.
-            </p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rolesWithStatus.map((role) => (
-                <RoleStatusCard
-                  key={role.id}
-                  role={role}
-                  companyId={companyId}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Workflow Requests Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock className="h-5 w-5" />
-            Workflow Requests
+      {/* Main Section Tabs */}
+      <Tabs value={activeMainTab} onValueChange={setActiveMainTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="requests" className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            Workflow
             {pendingCount > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {pendingCount} pending
+              <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                {pendingCount}
               </Badge>
             )}
-          </CardTitle>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 w-8 p-0"
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="pending">
-            <TabsList className="mb-4">
-              <TabsTrigger value="pending" className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Pending
-                {pendingCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                    {pendingCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="resolved" className="flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                History
-              </TabsTrigger>
-            </TabsList>
+          </TabsTrigger>
+          <TabsTrigger value="alerts" className="flex items-center gap-1">
+            <AlertTriangle className="h-4 w-4" />
+            System Alerts
+            {dlqCount > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                {dlqCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="pending" className="space-y-3">
-              {pendingRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="h-10 w-10 text-primary mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No pending requests. All caught up!
-                  </p>
-                </div>
+        <TabsContent value="requests" className="space-y-6">
+          {/* Role Overview Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Activity className="h-5 w-5" />
+                Role Overview
+              </CardTitle>
+              {idleActivatedRoles.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleKickoffIdleRoles}
+                  disabled={isKickingOff}
+                >
+                  {isKickingOff ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Start Idle Roles ({idleActivatedRoles.length})
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {rolesWithStatus.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No roles configured. Create roles to see their workflow status.
+                </p>
               ) : (
-                <>
-                  {/* Batch actions bar */}
-                  <div className="flex items-center justify-between py-2 px-1 border-b mb-3">
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={selectedIds.size === pendingRequests.length && pendingRequests.length > 0}
-                        onCheckedChange={toggleSelectAll}
-                        aria-label="Select all"
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {selectedIds.size > 0 
-                          ? `${selectedIds.size} selected` 
-                          : 'Select all'}
-                      </span>
-                    </div>
-                    {selectedIds.size > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={handleBatchApprove}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Check className="h-3 w-3 mr-1" />
-                          Approve ({selectedIds.size})
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleDismissOldSuggestions}
-                          className="text-muted-foreground"
-                          title="Dismiss AI suggestions older than 24 hours"
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Clear Old
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleBatchDeny}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Deny ({selectedIds.size})
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {pendingRequests.map((request) => (
-                    <WorkflowRequestCard
-                      key={request.id}
-                      request={request}
-                      onApprove={() => handleQuickApprove(request)}
-                      onDeny={() => handleQuickDeny(request)}
-                      onView={() => setSelectedRequest(request)}
-                      isProcessing={processingIds.has(request.id)}
-                      isSelected={selectedIds.has(request.id)}
-                      onToggleSelect={() => toggleSelection(request.id)}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {rolesWithStatus.map((role) => (
+                    <RoleStatusCard
+                      key={role.id}
+                      role={role}
+                      companyId={companyId}
                     />
                   ))}
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="resolved" className="space-y-3">
-              {resolvedRequests.length === 0 ? (
-                <div className="text-center py-8">
-                  <XCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No resolved requests yet.
-                  </p>
                 </div>
-              ) : (
-                resolvedRequests.slice(0, 20).map((request) => (
-                  <WorkflowRequestCard
-                    key={request.id}
-                    request={request}
-                    onApprove={() => {}}
-                    onDeny={() => {}}
-                    onView={() => setSelectedRequest(request)}
-                  />
-                ))
               )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          {/* Workflow Requests Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Clock className="h-5 w-5" />
+                Workflow Requests
+                {pendingCount > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {pendingCount} pending
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="h-8 w-8 p-0"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="pending">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="pending" className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Pending
+                    {pendingCount > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {pendingCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="resolved" className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    History
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="pending" className="space-y-3">
+                  {pendingRequests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CheckCircle2 className="h-10 w-10 text-primary mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        No pending requests. All caught up!
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Batch actions bar */}
+                      <div className="flex items-center justify-between py-2 px-1 border-b mb-3">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedIds.size === pendingRequests.length && pendingRequests.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Select all"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedIds.size > 0 
+                              ? `${selectedIds.size} selected` 
+                              : 'Select all'}
+                          </span>
+                        </div>
+                        {selectedIds.size > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleBatchApprove}
+                              className="bg-primary hover:bg-primary/90"
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Approve ({selectedIds.size})
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={handleDismissOldSuggestions}
+                              className="text-muted-foreground"
+                              title="Dismiss AI suggestions older than 24 hours"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Clear Old
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleBatchDeny}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Deny ({selectedIds.size})
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {pendingRequests.map((request) => (
+                        <WorkflowRequestCard
+                          key={request.id}
+                          request={request}
+                          onApprove={() => handleQuickApprove(request)}
+                          onDeny={() => handleQuickDeny(request)}
+                          onView={() => setSelectedRequest(request)}
+                          isProcessing={processingIds.has(request.id)}
+                          isSelected={selectedIds.has(request.id)}
+                          onToggleSelect={() => toggleSelection(request.id)}
+                        />
+                      ))}
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="resolved" className="space-y-3">
+                  {resolvedRequests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <XCircle className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        No resolved requests yet.
+                      </p>
+                    </div>
+                  ) : (
+                    resolvedRequests.slice(0, 20).map((request) => (
+                      <WorkflowRequestCard
+                        key={request.id}
+                        request={request}
+                        onApprove={() => {}}
+                        onDeny={() => {}}
+                        onView={() => setSelectedRequest(request)}
+                      />
+                    ))
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <SystemAlertsTab companyId={companyId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Review Dialog */}
       <RequestReviewDialog
