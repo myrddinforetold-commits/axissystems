@@ -95,6 +95,8 @@ export default function RoleChatPage() {
     loadAttempts,
     assignTask,
     stopTask,
+    archiveTask,
+    verifyTask,
     startTaskExecution,
   } = useTaskExecution({
     roleId: roleId || "",
@@ -438,6 +440,8 @@ export default function RoleChatPage() {
         }}
         onStopTask={handleStopTask}
         onLoadAttempts={loadAttempts}
+        onArchiveTask={archiveTask}
+        onVerifyTask={verifyTask}
       />
 
       {/* Assign Task Dialog */}

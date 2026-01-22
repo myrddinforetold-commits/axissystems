@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X, RefreshCw } from 'lucide-react';
+import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X, RefreshCw, Trash2 } from 'lucide-react';
 import { useWorkflowRequests, type WorkflowRequest } from '@/hooks/useWorkflowRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -183,6 +183,34 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
     }
   };
 
+  const handleDismissOldSuggestions = async () => {
+    if (!user) return;
+    
+    // Get suggest_next_task requests older than 24 hours
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const oldSuggestions = pendingRequests.filter(
+      r => r.request_type === 'suggest_next_task' && r.created_at < oneDayAgo
+    );
+    
+    if (oldSuggestions.length === 0) {
+      toast.info('No old suggestions to dismiss');
+      return;
+    }
+    
+    const ids = oldSuggestions.map(r => r.id);
+    try {
+      const { successCount, failureCount } = await denyMultiple(ids, user.id);
+      if (successCount > 0) {
+        toast.success(`Dismissed ${successCount} old suggestion${successCount > 1 ? 's' : ''}`);
+      }
+      if (failureCount > 0) {
+        toast.error(`Failed to dismiss ${failureCount} suggestion${failureCount > 1 ? 's' : ''}`);
+      }
+    } catch (error) {
+      toast.error('Failed to dismiss suggestions');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -308,6 +336,16 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
                         >
                           <Check className="h-3 w-3 mr-1" />
                           Approve ({selectedIds.size})
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleDismissOldSuggestions}
+                          className="text-muted-foreground"
+                          title="Dismiss AI suggestions older than 24 hours"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Clear Old
                         </Button>
                         <Button
                           size="sm"

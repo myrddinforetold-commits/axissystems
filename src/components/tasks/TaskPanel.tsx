@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, ChevronRight, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, ChevronRight, Loader2, Archive, CheckCircle2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import TaskStatusBadge from "./TaskStatusBadge";
 import TaskDetailView from "./TaskDetailView";
 import DependencyStatusBadge from "./DependencyStatusBadge";
 import type { Task, TaskAttempt } from "@/hooks/useTaskExecution";
+import { toast } from "sonner";
 
 interface TaskPanelProps {
   open: boolean;
@@ -27,6 +29,8 @@ interface TaskPanelProps {
   onAssignClick: () => void;
   onStopTask: (taskId: string) => Promise<void>;
   onLoadAttempts: (taskId: string) => Promise<void>;
+  onArchiveTask?: (taskId: string) => Promise<void>;
+  onVerifyTask?: (taskId: string) => Promise<void>;
 }
 
 export default function TaskPanel({
@@ -40,8 +44,11 @@ export default function TaskPanel({
   onAssignClick,
   onStopTask,
   onLoadAttempts,
+  onArchiveTask,
+  onVerifyTask,
 }: TaskPanelProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const selectedTask = selectedTaskId 
     ? tasks.find(t => t.id === selectedTaskId) || null
@@ -52,9 +59,28 @@ export default function TaskPanel({
     await onLoadAttempts(task.id);
   };
 
+  const handleArchive = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    if (onArchiveTask) {
+      await onArchiveTask(taskId);
+      toast.success("Task archived");
+    }
+  };
+
+  const handleVerify = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    if (onVerifyTask) {
+      await onVerifyTask(taskId);
+      toast.success("Task verified");
+    }
+  };
+
   const completedTasks = tasks.filter(t => 
     t.status === "completed" || t.status === "blocked" || t.status === "stopped"
   );
+  
+  const archivedTasks = tasks.filter(t => t.status === "archived");
+  const unverifiedCount = tasks.filter(t => t.requires_verification && !t.verified_at).length;
 
   const hasActiveTask = activeTask !== null;
 
@@ -147,7 +173,15 @@ export default function TaskPanel({
                   <>
                     <Separator />
                     <div>
-                      <h3 className="text-sm font-medium mb-2">Previous Tasks</h3>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium">Previous Tasks</h3>
+                        {unverifiedCount > 0 && (
+                          <Badge variant="outline" className="text-amber-600 border-amber-300">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {unverifiedCount} unverified
+                          </Badge>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         {completedTasks.map(task => (
                           <Card 
@@ -156,9 +190,23 @@ export default function TaskPanel({
                             onClick={() => handleTaskClick(task)}
                           >
                             <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium truncate">{task.title}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium truncate">{task.title}</p>
+                                    {task.requires_verification && !task.verified_at && (
+                                      <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs shrink-0">
+                                        <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                        Unverified
+                                      </Badge>
+                                    )}
+                                    {task.verified_at && (
+                                      <Badge variant="outline" className="text-green-600 border-green-300 text-xs shrink-0">
+                                        <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                                        Verified
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <TaskStatusBadge status={task.status} size="sm" />
                                     <DependencyStatusBadge
@@ -170,12 +218,78 @@ export default function TaskPanel({
                                     </span>
                                   </div>
                                 </div>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {task.requires_verification && !task.verified_at && onVerifyTask && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      onClick={(e) => handleVerify(e, task.id)}
+                                      title="Mark as verified"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {onArchiveTask && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                      onClick={(e) => handleArchive(e, task.id)}
+                                      title="Archive task"
+                                    >
+                                      <Archive className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
                         ))}
                       </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Archived Tasks Toggle */}
+                {archivedTasks.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-between text-muted-foreground"
+                        onClick={() => setShowArchived(!showArchived)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Archive className="h-4 w-4" />
+                          Archived ({archivedTasks.length})
+                        </span>
+                        {showArchived ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                      {showArchived && (
+                        <div className="space-y-2 mt-2">
+                          {archivedTasks.map(task => (
+                            <Card 
+                              key={task.id}
+                              className="cursor-pointer hover:bg-accent/50 transition-colors opacity-60"
+                              onClick={() => handleTaskClick(task)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium truncate">{task.title}</p>
+                                    <TaskStatusBadge status={task.status} size="sm" />
+                                  </div>
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

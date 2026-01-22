@@ -663,10 +663,13 @@ export type Database = {
           description: string
           id: string
           max_attempts: number
+          requires_verification: boolean | null
           role_id: string
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           assigned_by: string
@@ -680,10 +683,13 @@ export type Database = {
           description: string
           id?: string
           max_attempts?: number
+          requires_verification?: boolean | null
           role_id: string
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           assigned_by?: string
@@ -697,10 +703,13 @@ export type Database = {
           description?: string
           id?: string
           max_attempts?: number
+          requires_verification?: boolean | null
           role_id?: string
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -823,6 +832,10 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { _token: string }; Returns: boolean }
+      cleanup_old_workflow_requests: {
+        Args: { days_old?: number }
+        Returns: number
+      }
       create_company_with_owner: {
         Args: { company_name: string }
         Returns: string
@@ -867,7 +880,13 @@ export type Database = {
       company_role: "owner" | "member"
       memory_scope: "role" | "company"
       message_sender: "user" | "ai"
-      task_status: "pending" | "running" | "completed" | "blocked" | "stopped"
+      task_status:
+        | "pending"
+        | "running"
+        | "completed"
+        | "blocked"
+        | "stopped"
+        | "archived"
       workflow_request_status: "pending" | "approved" | "denied"
       workflow_request_type:
         | "send_memo"
@@ -1014,7 +1033,14 @@ export const Constants = {
       company_role: ["owner", "member"],
       memory_scope: ["role", "company"],
       message_sender: ["user", "ai"],
-      task_status: ["pending", "running", "completed", "blocked", "stopped"],
+      task_status: [
+        "pending",
+        "running",
+        "completed",
+        "blocked",
+        "stopped",
+        "archived",
+      ],
       workflow_request_status: ["pending", "approved", "denied"],
       workflow_request_type: [
         "send_memo",
