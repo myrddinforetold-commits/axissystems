@@ -502,6 +502,7 @@ export type Database = {
           created_by: string
           display_name: string | null
           id: string
+          is_activated: boolean
           mandate: string
           memory_scope: Database["public"]["Enums"]["memory_scope"]
           name: string
@@ -516,6 +517,7 @@ export type Database = {
           created_by: string
           display_name?: string | null
           id?: string
+          is_activated?: boolean
           mandate: string
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
           name: string
@@ -530,6 +532,7 @@ export type Database = {
           created_by?: string
           display_name?: string | null
           id?: string
+          is_activated?: boolean
           mandate?: string
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
           name?: string

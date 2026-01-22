@@ -13,6 +13,7 @@ import AssignTaskDialog from "@/components/tasks/AssignTaskDialog";
 import TaskPanel from "@/components/tasks/TaskPanel";
 import ActiveTaskBanner from "@/components/tasks/ActiveTaskBanner";
 import RoleObjectiveBanner from "@/components/workflow/RoleObjectiveBanner";
+import RoleActivationWizard from "@/components/wizard/RoleActivationWizard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,8 @@ interface Role {
   mandate: string;
   company_id: string;
   workflow_status: string;
+  authority_level: string;
+  is_activated: boolean;
 }
 
 interface RoleObjective {
@@ -50,6 +53,7 @@ export default function RoleChatPage() {
   const [showMemoryPanel, setShowMemoryPanel] = useState(false);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showActivationWizard, setShowActivationWizard] = useState(false);
 
   const handleChatError = useCallback((err: string) => {
     toast({
@@ -107,9 +111,10 @@ export default function RoleChatPage() {
       }
 
       try {
+        // Fetch role with new is_activated column (using any cast for new column)
         const { data, error: fetchError } = await supabase
           .from("roles")
-          .select("id, name, mandate, company_id, workflow_status")
+          .select("id, name, mandate, company_id, workflow_status, authority_level, is_activated")
           .eq("id", roleId)
           .eq("company_id", companyId)
           .single();
@@ -117,7 +122,13 @@ export default function RoleChatPage() {
         if (fetchError) throw fetchError;
         if (!data) throw new Error("Role not found");
 
-        setRole(data);
+        const roleData = data as unknown as Role;
+        setRole(roleData);
+        
+        // Show activation wizard if role is not yet activated
+        if (!roleData.is_activated) {
+          setShowActivationWizard(true);
+        }
 
         // Fetch company name
         const { data: companyData } = await supabase
@@ -168,6 +179,31 @@ export default function RoleChatPage() {
 
   const handleBack = () => {
     navigate(`/companies/${companyId}`);
+  };
+
+  const handleActivationComplete = async () => {
+    setShowActivationWizard(false);
+    // Refresh role data to get updated is_activated status
+    const { data } = await supabase
+      .from("roles")
+      .select("id, name, mandate, company_id, workflow_status, authority_level, is_activated")
+      .eq("id", roleId)
+      .single();
+    if (data) {
+      setRole(data as unknown as Role);
+    }
+    // Reload objectives
+    const { data: objectiveData } = await supabase
+      .from("role_objectives")
+      .select("id, title, description, status")
+      .eq("role_id", roleId)
+      .eq("status", "active")
+      .order("priority", { ascending: true })
+      .limit(1)
+      .single();
+    if (objectiveData) {
+      setCurrentObjective(objectiveData as RoleObjective);
+    }
   };
 
   const handlePinToMemory = async (messageId: string, content: string, label: string) => {
@@ -326,6 +362,16 @@ export default function RoleChatPage() {
         onAssign={handleAssignTask}
         roleName={role.name}
       />
+
+      {/* Role Activation Wizard */}
+      {companyId && (
+        <RoleActivationWizard
+          open={showActivationWizard}
+          onComplete={handleActivationComplete}
+          role={role}
+          companyId={companyId}
+        />
+      )}
     </div>
   );
 }
