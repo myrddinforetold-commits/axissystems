@@ -81,7 +81,7 @@ export default function Login() {
               <img 
                 src={axisLogo} 
                 alt="Axis Systems" 
-                className="h-10 w-auto" 
+                className="h-20 w-auto" 
               />
             </Link>
           </div>
