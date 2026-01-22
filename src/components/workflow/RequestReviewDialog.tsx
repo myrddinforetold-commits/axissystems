@@ -64,6 +64,23 @@ const typeConfig = {
   },
 };
 
+// Helper to parse task content from JSON
+const parseTaskContent = (content: string) => {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.title && parsed.description && parsed.completion_criteria) {
+      return parsed as {
+        title: string;
+        description: string;
+        completion_criteria: string;
+      };
+    }
+  } catch {
+    // Not JSON, return null
+  }
+  return null;
+};
+
 export default function RequestReviewDialog({
   request,
   companyId,
@@ -75,14 +92,18 @@ export default function RequestReviewDialog({
 }: RequestReviewDialogProps) {
   const navigate = useNavigate();
   const [editedContent, setEditedContent] = useState('');
+  const [editedTask, setEditedTask] = useState({ title: '', description: '', completion_criteria: '' });
   const [reviewNotes, setReviewNotes] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingTask, setIsEditingTask] = useState(false);
 
   if (!request) return null;
 
   const type = request.request_type as keyof typeof typeConfig;
   const typeInfo = typeConfig[type] || typeConfig.send_memo;
   const TypeIcon = typeInfo.icon;
+  const isTaskType = type === 'start_task' || type === 'suggest_next_task';
+  const taskContent = parseTaskContent(request.proposed_content);
 
   const fromRoleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Unknown';
   const toRoleName = request.target_role?.display_name || request.target_role?.name;
@@ -90,17 +111,22 @@ export default function RequestReviewDialog({
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setEditedContent('');
+      setEditedTask({ title: '', description: '', completion_criteria: '' });
       setReviewNotes('');
       setIsEditing(false);
+      setIsEditingTask(false);
     }
     onOpenChange(newOpen);
   };
 
   const handleApprove = async () => {
-    await onApprove(
-      isEditing ? editedContent : undefined,
-      reviewNotes || undefined
-    );
+    let finalContent: string | undefined;
+    if (isEditingTask) {
+      finalContent = JSON.stringify(editedTask);
+    } else if (isEditing) {
+      finalContent = editedContent;
+    }
+    await onApprove(finalContent, reviewNotes || undefined);
     handleOpenChange(false);
   };
 
@@ -115,8 +141,13 @@ export default function RequestReviewDialog({
   };
 
   const startEditing = () => {
-    setEditedContent(request.proposed_content);
-    setIsEditing(true);
+    if (isTaskType && taskContent) {
+      setEditedTask(taskContent);
+      setIsEditingTask(true);
+    } else {
+      setEditedContent(request.proposed_content);
+      setIsEditing(true);
+    }
   };
 
   return (
@@ -177,20 +208,68 @@ export default function RequestReviewDialog({
               <Label className="text-sm text-muted-foreground">
                 {type === 'send_memo' ? 'Memo Content' : 'Proposed Content'}
               </Label>
-              {typeInfo.allowEdit && !isEditing && request.status === 'pending' && (
+              {typeInfo.allowEdit && !isEditing && !isEditingTask && request.status === 'pending' && (
                 <Button variant="ghost" size="sm" onClick={startEditing}>
                   Edit before approving
                 </Button>
               )}
             </div>
             
-            {isEditing ? (
+            {isEditingTask ? (
+              <div className="space-y-3 rounded-md border p-4">
+                <div>
+                  <Label htmlFor="edit-title" className="text-xs text-muted-foreground">Task Title</Label>
+                  <input
+                    id="edit-title"
+                    type="text"
+                    value={editedTask.title}
+                    onChange={(e) => setEditedTask(prev => ({ ...prev, title: e.target.value }))}
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-description" className="text-xs text-muted-foreground">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    value={editedTask.description}
+                    onChange={(e) => setEditedTask(prev => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-criteria" className="text-xs text-muted-foreground">Completion Criteria</Label>
+                  <Textarea
+                    id="edit-criteria"
+                    value={editedTask.completion_criteria}
+                    onChange={(e) => setEditedTask(prev => ({ ...prev, completion_criteria: e.target.value }))}
+                    rows={3}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            ) : isEditing ? (
               <Textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
                 rows={8}
                 className="font-mono text-sm"
               />
+            ) : isTaskType && taskContent ? (
+              <div className="rounded-md border bg-muted/50 p-4 space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Task Title</Label>
+                  <p className="font-medium">{taskContent.title}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Description</Label>
+                  <p className="text-sm whitespace-pre-wrap">{taskContent.description}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Completion Criteria</Label>
+                  <p className="text-sm whitespace-pre-wrap">{taskContent.completion_criteria}</p>
+                </div>
+              </div>
             ) : (
               <div className="rounded-md border bg-muted/50 p-4">
                 <pre className="whitespace-pre-wrap text-sm font-mono">
@@ -247,7 +326,7 @@ export default function RequestReviewDialog({
                 className="bg-green-600 hover:bg-green-700"
               >
                 <Check className="mr-1 h-4 w-4" />
-                {isEditing ? 'Approve with Edits' : 'Approve'}
+                {isEditing || isEditingTask ? 'Approve with Edits' : 'Approve'}
               </Button>
             </>
           ) : (
