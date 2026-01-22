@@ -6,6 +6,65 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Technical architecture context for roles to understand what exists
+const AXIS_TECHNICAL_CONTEXT = `
+## Axis Systems Technical Architecture (Current State)
+
+### Database Schema (PostgreSQL)
+Tables that ALREADY EXIST (do not propose creating these):
+- roles: AI role definitions with mandates, system prompts, authority levels (observer/advisor/operator/executive/orchestrator)
+- tasks: Assigned work items with completion criteria, attempt tracking, max 3 retries
+- task_attempts: Execution history with AI outputs and pass/fail/unclear evaluations
+- workflow_requests: Human-in-the-loop approval queue (start_task, send_memo, continue_task, suggest_next_task)
+- role_memos: Inter-role communications (from_role_id → to_role_id with content)
+- company_memory: Shared organizational knowledge pinned by users (company-wide visibility)
+- role_memory: Private role-specific learnings (role-scoped visibility)
+- role_objectives: Current goals for each role with priority and status
+- role_messages: Chat history between humans and roles
+- company_grounding: Business context, products, entities, constraints, aspirations
+- company_context: Company stage (early/growth/established) and grounding status
+- profiles: User display names and avatars
+- company_members: User-company associations with roles (owner/member)
+- cos_reports: Chief of Staff generated reports
+
+### Backend Functions (Deployed)
+Functions that ALREADY EXIST:
+- role-chat: Handles human-role conversations with streaming responses
+- role-autonomous-loop: Observe-Decide-Propose cycle for autonomous roles
+- task-execute: This function - Runs tasks with AI, evaluates output, handles retries
+- workflow-approve: Processes approval/denial of workflow requests
+- grounding-summary: Generates AI summary of grounding data
+- cos-summary: Chief of Staff reporting and analysis
+
+### Frontend (React/TypeScript/Tailwind)
+UI that ALREADY EXISTS:
+- Role chat interface with streaming AI responses
+- Workflow dashboard for approving/denying requests
+- Task panel with execution monitoring
+- Company memory panel for pinning knowledge
+- Grounding wizard for company onboarding
+- Role activation wizard with objective setting
+- CoS (Chief of Staff) reporting interface
+
+### External Integrations: NONE AVAILABLE
+The system currently has NO external integrations:
+- ❌ No email sending (cannot send emails to real people)
+- ❌ No CRM access (no Salesforce, HubSpot, etc.)
+- ❌ No analytics platforms (no Mixpanel, Amplitude, etc.)
+- ❌ No external APIs or webhooks
+- ❌ No calendar/scheduling integrations
+- ❌ No Slack/Teams messaging
+- ❌ No social media posting
+- ❌ No code deployment capabilities
+
+### What Roles CAN Do Within This System:
+- Create documents, specifications, research, and analysis
+- Send memos to other roles (internal communication only)
+- Propose tasks that produce written deliverables
+- Access and reference grounding data and company memory
+- Mark objectives as complete when criteria are met
+`;
+
 interface Task {
   id: string;
   company_id: string;
@@ -239,6 +298,7 @@ You are executing a specific task. Your output must directly address the task re
 ## Your Role Mandate:
 ${role.mandate}
 ${groundingContext}
+${AXIS_TECHNICAL_CONTEXT}
 ${memoryContext}
 
 ## Task Details:
@@ -268,6 +328,12 @@ ${task.completion_criteria}
 - Execute code or deploy software
 - Make phone calls or schedule meetings
 - Access real-time market data (unless provided)
+
+## Technical Grounding Rules:
+- Reference actual table names when discussing data structures (e.g., "role_memos" not "the messaging system")
+- Do not propose creating infrastructure that already exists (see Technical Architecture above)
+- If task requires unavailable integrations, explicitly state what's missing and provide alternatives
+- Acknowledge existing systems before proposing extensions or improvements
 
 ## Other Instructions:
 1. Focus solely on completing the task as described
