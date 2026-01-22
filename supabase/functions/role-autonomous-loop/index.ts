@@ -389,7 +389,7 @@ Deno.serve(async (req) => {
       const { error: wfError } = await supabase.from("workflow_requests").insert({
         company_id: context.role.company_id,
         requesting_role_id: context.role.id,
-        request_type: "task_start",
+        request_type: "start_task",
         summary: `Task: ${decision.details.title}`,
         proposed_content: JSON.stringify({
           title: decision.details.title,
@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
           company_id: context.role.company_id,
           requesting_role_id: context.role.id,
           target_role_id: targetRole.id,
-          request_type: "memo",
+          request_type: "send_memo",
           summary: `Memo to ${decision.details.to_role}`,
           proposed_content: decision.details.content,
         });
