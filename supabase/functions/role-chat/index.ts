@@ -401,7 +401,7 @@ This allows the system to capture your proposals for review.`;
 
     // Create a transform stream to capture the full response
     let fullResponse = "";
-    const { readable, writable } = new TransformStream({
+    const transformStream = new TransformStream({
       transform(chunk, controller) {
         const text = new TextDecoder().decode(chunk);
         
@@ -423,10 +423,26 @@ This allows the system to capture your proposals for review.`;
         
         controller.enqueue(chunk);
       },
-      async flush() {
-        // Store AI response after stream completes
+    });
+
+    const reader = aiResponse.body!.getReader();
+    const writer = transformStream.writable.getWriter();
+
+    // Background task: pipe chunks then run DB operations after stream ends
+    const pipeAndProcess = async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await writer.write(value);
+        }
+        await writer.close();
+
+        // NOW execute DB operations (guaranteed to run before function terminates)
         if (fullResponse) {
-          await supabaseService
+          console.log("Storing AI response, length:", fullResponse.length);
+          
+          const { error: insertError } = await supabaseService
             .from("role_messages")
             .insert({
               role_id: role_id,
@@ -435,24 +451,35 @@ This allows the system to capture your proposals for review.`;
               content: fullResponse,
             });
 
+          if (insertError) {
+            console.error("Failed to store AI message:", insertError);
+          }
+
           // Extract and create workflow requests from the AI response
+          console.log("Checking for workflow requests in response...");
           const extractedRequests = await extractWorkflowRequests(fullResponse, LOVABLE_API_KEY!);
+          
           if (extractedRequests.length > 0) {
+            console.log(`Extracted ${extractedRequests.length} workflow request(s):`, extractedRequests);
             await createWorkflowRequests(
               supabaseService,
               extractedRequests,
               role_id,
               role.company_id
             );
+          } else {
+            console.log("No workflow requests found in response");
           }
         }
-      },
-    });
+      } catch (error) {
+        console.error("Pipe and process error:", error);
+      }
+    };
 
-    // Pipe the AI response through our transform stream
-    aiResponse.body?.pipeTo(writable);
+    // Start the background processing
+    pipeAndProcess();
 
-    return new Response(readable, {
+    return new Response(transformStream.readable, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
