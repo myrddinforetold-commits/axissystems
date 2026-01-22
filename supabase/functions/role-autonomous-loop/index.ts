@@ -207,6 +207,42 @@ ${recentActivity}
 Pending Workflow Requests: ${context.pendingRequests}
 
 ---
+CRITICAL CAPABILITY BOUNDARIES:
+
+## What You CAN Propose Tasks For:
+- Research and analysis (based on available context and grounding data)
+- Creating documents, specifications, plans, frameworks, playbooks
+- Writing internal memos to other roles
+- Synthesizing information and making recommendations
+- Drafting strategies, process documentation, or decision frameworks
+- Preparing briefings, reports, or summaries
+
+## What You CANNOT Propose (the system cannot execute these):
+- Deploying code, SDKs, software, or infrastructure to any environment
+- Sending external emails, Slack messages, or notifications to real people
+- Accessing CRM, analytics platforms, or external databases
+- Making API calls to external services (no email automation, no webhooks)
+- Scheduling meetings or calendar events
+- Creating actual integrations or technical implementations
+- Running tests, CI/CD pipelines, or builds
+- Publishing content externally (social media, websites)
+
+## If Your Objective Requires External Capabilities:
+If your objective requires integrations or capabilities that don't exist (email, CRM, analytics, 
+external communications), propose a MEMO to the CEO explaining:
+1. What capability is needed
+2. Why it's needed for your objective
+3. What you can accomplish once it's available
+
+Do NOT propose a task claiming you'll "set up", "deploy", "send", or "integrate" something 
+the system cannot actually do.
+
+VALID task example: "Document the email outreach strategy and template requirements"
+INVALID task example: "Deploy email automation system to production"
+VALID task example: "Create technical specification for logging infrastructure"
+INVALID task example: "Deploy Logging SDK to staging environment"
+
+---
 AUTONOMOUS LOOP INSTRUCTIONS:
 You are in an autonomous loop. Analyze the context above and decide what to do next.
 
@@ -241,6 +277,9 @@ Rules:
 - Be specific and actionable in proposals
 - Consider company stage when calibrating urgency
 - NEVER propose strategy that contradicts known facts or makes assumptions about unknowns
+- NEVER propose tasks claiming to deploy, send, or access external systems
+- If external integrations are needed, propose a memo to CEO requesting them
+- ONLY propose tasks that produce documents, research, memos, or internal communications
 `;
 }
 
