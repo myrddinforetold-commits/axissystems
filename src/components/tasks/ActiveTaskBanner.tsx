@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eye } from "lucide-react";
+import { Loader2, Eye, Play } from "lucide-react";
 import TaskStatusBadge from "./TaskStatusBadge";
 import StopTaskButton from "./StopTaskButton";
 import type { Task, TaskAttempt } from "@/hooks/useTaskExecution";
@@ -11,6 +11,7 @@ interface ActiveTaskBannerProps {
   isExecuting: boolean;
   onViewDetails: () => void;
   onStop: () => Promise<void>;
+  onStart?: () => void;
 }
 
 export default function ActiveTaskBanner({
@@ -19,6 +20,7 @@ export default function ActiveTaskBanner({
   isExecuting,
   onViewDetails,
   onStop,
+  onStart,
 }: ActiveTaskBannerProps) {
   const latestAttempt = attempts.length > 0 
     ? attempts[attempts.length - 1] 
@@ -68,7 +70,13 @@ export default function ActiveTaskBanner({
             <Button variant="ghost" size="sm" onClick={onViewDetails}>
               <Eye className="h-4 w-4" />
             </Button>
-            {(task.status === "running" || task.status === "pending") && (
+            {task.status === "pending" && !isExecuting && onStart && (
+              <Button variant="default" size="sm" onClick={onStart}>
+                <Play className="h-4 w-4 mr-1" />
+                Start
+              </Button>
+            )}
+            {(task.status === "running" || (task.status === "pending" && isExecuting)) && (
               <StopTaskButton onStop={onStop} isExecuting={isExecuting} size="icon" variant="ghost" />
             )}
           </div>

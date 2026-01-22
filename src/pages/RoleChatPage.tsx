@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -297,6 +297,25 @@ export default function RoleChatPage() {
     });
   };
 
+  // Track which tasks we've already tried to trigger
+  const triggeredTasksRef = useRef<Set<string>>(new Set());
+
+  // Auto-start orphaned pending tasks (created before auto-start was implemented)
+  useEffect(() => {
+    if (!activeTask || activeTask.status !== 'pending') return;
+    if (triggeredTasksRef.current.has(activeTask.id)) return;
+    
+    // Check if task has been pending for more than 5 seconds with no attempts
+    const taskAge = Date.now() - new Date(activeTask.created_at).getTime();
+    const isOrphaned = taskAge > 5000 && activeTask.current_attempt === 0;
+    
+    if (isOrphaned) {
+      console.log("Detected orphaned pending task, triggering execution...", activeTask.id);
+      triggeredTasksRef.current.add(activeTask.id);
+      startTaskExecution(activeTask.id);
+    }
+  }, [activeTask, startTaskExecution]);
+
   // Show toast when task completes or blocks
   useEffect(() => {
     if (activeTask?.status === "completed") {
@@ -378,6 +397,7 @@ export default function RoleChatPage() {
           isExecuting={isExecuting}
           onViewDetails={() => setShowTaskPanel(true)}
           onStop={() => handleStopTask(activeTask.id)}
+          onStart={() => startTaskExecution(activeTask.id)}
         />
       )}
 
