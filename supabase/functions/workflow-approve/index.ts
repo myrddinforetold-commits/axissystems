@@ -259,7 +259,7 @@ ${contentToUse}`;
           const targetRoleId = request.target_role_id || request.requesting_role_id;
 
           // Create the task for the target role
-          const { error: taskError } = await supabaseService
+          const { data: createdTask, error: taskError } = await supabaseService
             .from("tasks")
             .insert({
               role_id: targetRoleId,
@@ -269,7 +269,9 @@ ${contentToUse}`;
               description: taskDetails.description || contentToUse,
               completion_criteria: taskDetails.completion_criteria || "Task completed successfully.",
               status: "pending",
-            });
+            })
+            .select("id")
+            .single();
 
           if (taskError) {
             console.error("Error creating task:", taskError);
@@ -277,6 +279,31 @@ ${contentToUse}`;
               JSON.stringify({ error: "Failed to create task" }),
               { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+          }
+
+          // Auto-start task execution (fire and forget using waitUntil)
+          if (createdTask?.id) {
+            const executeTask = async () => {
+              try {
+                const response = await fetch(
+                  `${supabaseUrl}/functions/v1/task-execute`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${supabaseServiceKey}`,
+                    },
+                    body: JSON.stringify({ task_id: createdTask.id }),
+                  }
+                );
+                console.log("Auto-started task execution:", response.status);
+              } catch (err) {
+                console.error("Failed to auto-start task:", err);
+              }
+            };
+            
+            // Use EdgeRuntime.waitUntil for background execution
+            (globalThis as any).EdgeRuntime?.waitUntil?.(executeTask()) ?? executeTask();
           }
           break;
         }
