@@ -179,6 +179,11 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
       if (!response.ok) {
         const error = await response.json();
+        // Handle "already processed" as a non-error - just refresh to sync state
+        if (error.error === 'Request has already been processed') {
+          await loadRequests();
+          return { success: true, alreadyProcessed: true };
+        }
         throw new Error(error.error || 'Failed to approve request');
       }
 
@@ -227,6 +232,11 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
       if (!response.ok) {
         const error = await response.json();
+        // Handle "already processed" as a non-error - just refresh to sync state
+        if (error.error === 'Request has already been processed') {
+          await loadRequests();
+          return { success: true, alreadyProcessed: true };
+        }
         throw new Error(error.error || 'Failed to deny request');
       }
 
@@ -278,6 +288,10 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
         if (!response.ok) {
           const error = await response.json();
+          // Treat "already processed" as success for batch operations
+          if (error.error === 'Request has already been processed') {
+            return { success: true, alreadyProcessed: true };
+          }
           throw new Error(error.error || 'Failed to approve request');
         }
 
@@ -335,6 +349,10 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
         if (!response.ok) {
           const error = await response.json();
+          // Treat "already processed" as success for batch operations
+          if (error.error === 'Request has already been processed') {
+            return { success: true, alreadyProcessed: true };
+          }
           throw new Error(error.error || 'Failed to deny request');
         }
 
