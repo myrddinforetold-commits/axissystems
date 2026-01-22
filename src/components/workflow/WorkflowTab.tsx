@@ -4,11 +4,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X } from 'lucide-react';
+import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X, RefreshCw } from 'lucide-react';
 import { useWorkflowRequests, type WorkflowRequest } from '@/hooks/useWorkflowRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import RoleStatusCard from './RoleStatusCard';
 import WorkflowRequestCard from './WorkflowRequestCard';
 import RequestReviewDialog from './RequestReviewDialog';
@@ -22,6 +23,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
   const [selectedRequest, setSelectedRequest] = useState<WorkflowRequest | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isKickingOff, setIsKickingOff] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const {
     requests,
@@ -29,6 +31,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
     pendingCount,
     isLoading,
     processingIds,
+    loadAll,
     approveRequest,
     denyRequest,
     approveMultiple,
@@ -37,6 +40,13 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
     companyId,
     onError: (error) => toast.error(error),
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadAll();
+    setIsRefreshing(false);
+    toast.success('Workflow updated');
+  };
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const resolvedRequests = requests.filter(r => r.status !== 'pending');
@@ -227,7 +237,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
 
       {/* Workflow Requests Section */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Clock className="h-5 w-5" />
             Workflow Requests
@@ -237,6 +247,15 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
               </Badge>
             )}
           </CardTitle>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+          </Button>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="pending">
