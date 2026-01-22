@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ActiveWorkCard from "./ActiveWorkCard";
 import CompletedDeliverableCard from "./CompletedDeliverableCard";
 import WorkProgressChart from "./WorkProgressChart";
-import { ClipboardList, CheckCircle2, BarChart3 } from "lucide-react";
+import ExternalActionsCard from "./ExternalActionsCard";
+import { ClipboardList, CheckCircle2 } from "lucide-react";
 
 interface Task {
   id: string;
@@ -123,6 +124,9 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* External Actions (only shows if there are pending actions) */}
+      <ExternalActionsCard companyId={companyId} />
+
       {/* Progress Overview */}
       <WorkProgressChart 
         activeTasks={activeTasks} 

@@ -25,11 +25,19 @@ import {
   X,
   ExternalLink,
   Copy,
-  ClipboardCheck
+  ClipboardCheck,
+  Users,
+  BookmarkPlus,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { WorkflowRequest } from '@/hooks/useWorkflowRequests';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import OutputActionCard from './OutputActionCard';
+import DelegateToRoleDialog from './DelegateToRoleDialog';
 
 interface RequestReviewDialogProps {
   request: WorkflowRequest | null;
@@ -158,11 +166,15 @@ export default function RequestReviewDialog({
   isProcessing,
 }: RequestReviewDialogProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [editedContent, setEditedContent] = useState('');
   const [editedTask, setEditedTask] = useState({ title: '', description: '', completion_criteria: '' });
   const [reviewNotes, setReviewNotes] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingTask, setIsEditingTask] = useState(false);
+  const [showActionSelector, setShowActionSelector] = useState(false);
+  const [showDelegateDialog, setShowDelegateDialog] = useState(false);
+  const [actionProcessing, setActionProcessing] = useState(false);
 
   if (!request) return null;
 
@@ -184,11 +196,18 @@ export default function RequestReviewDialog({
       setReviewNotes('');
       setIsEditing(false);
       setIsEditingTask(false);
+      setShowActionSelector(false);
     }
     onOpenChange(newOpen);
   };
 
   const handleApprove = async () => {
+    // For review_output, show action selector instead of directly approving
+    if (isReviewOutputType && !showActionSelector) {
+      setShowActionSelector(true);
+      return;
+    }
+    
     let finalContent: string | undefined;
     if (isEditingTask) {
       finalContent = JSON.stringify(editedTask);
@@ -217,6 +236,177 @@ export default function RequestReviewDialog({
       setEditedContent(request.proposed_content);
       setIsEditing(true);
     }
+  };
+
+  // Action handlers for review_output
+  const handleCopyToLovable = async () => {
+    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
+    const output = reviewOutputContent?.output || request.proposed_content;
+    
+    const formattedPrompt = `## Implementation Request from ${roleName}
+
+${output}
+
+---
+**Completion Criteria:** ${reviewOutputContent?.completion_criteria || 'Complete the implementation as specified above.'}
+
+Please implement this feature/change.`;
+    
+    await navigator.clipboard.writeText(formattedPrompt);
+    toast.success('Copied to clipboard', {
+      description: 'Paste this into Lovable to implement'
+    });
+    
+    // Record action and approve
+    setActionProcessing(true);
+    try {
+      await supabase.from('output_actions').insert({
+        task_id: reviewOutputContent?.task_id || request.source_task_id,
+        company_id: companyId,
+        action_type: 'copy_to_lovable',
+        action_data: {
+          task_title: reviewOutputContent?.task_title || request.summary,
+          role_name: roleName,
+        },
+        status: 'completed',
+        completed_by: user?.id,
+        completed_at: new Date().toISOString(),
+      } as any);
+      
+      await onApprove(undefined, reviewNotes || undefined);
+      handleOpenChange(false);
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleDelegateToRole = async (targetRoleId: string, instructions: string) => {
+    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
+    const output = reviewOutputContent?.output || request.proposed_content;
+    
+    setActionProcessing(true);
+    try {
+      // Get target role name
+      const { data: targetRole } = await supabase
+        .from('roles')
+        .select('name, display_name')
+        .eq('id', targetRoleId)
+        .single();
+
+      // Create follow-up task
+      const taskDescription = instructions 
+        ? `${instructions}\n\n---\n**Source Output:**\n${output}`
+        : `Execute the following work:\n\n${output}`;
+        
+      const { error: taskError } = await supabase.from('tasks').insert({
+        role_id: targetRoleId,
+        company_id: companyId,
+        assigned_by: user?.id,
+        title: `Execute: ${reviewOutputContent?.task_title || request.summary}`,
+        description: taskDescription,
+        completion_criteria: 'Successfully execute the plan outlined in the source output.',
+        status: 'pending',
+      });
+      
+      if (taskError) throw taskError;
+
+      // Record action
+      await supabase.from('output_actions').insert({
+        task_id: reviewOutputContent?.task_id || request.source_task_id,
+        company_id: companyId,
+        action_type: 'create_followup',
+        action_data: {
+          task_title: reviewOutputContent?.task_title || request.summary,
+          target_role_id: targetRoleId,
+          target_role_name: targetRole?.display_name || targetRole?.name,
+          role_name: roleName,
+        },
+        status: 'completed',
+        completed_by: user?.id,
+        completed_at: new Date().toISOString(),
+      } as any);
+      
+      toast.success(`Task delegated to ${targetRole?.display_name || targetRole?.name}`);
+      await onApprove(undefined, reviewNotes || undefined);
+      handleOpenChange(false);
+    } catch (error) {
+      toast.error('Failed to delegate task');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handlePinToMemory = async () => {
+    const output = reviewOutputContent?.completion_summary || reviewOutputContent?.output || request.proposed_content;
+    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
+    
+    setActionProcessing(true);
+    try {
+      await supabase.from('company_memory').insert({
+        company_id: companyId,
+        content: output.slice(0, 2000), // Limit to 2000 chars
+        label: reviewOutputContent?.task_title || request.summary,
+        source_role_id: request.requesting_role_id,
+        pinned_by: user?.id,
+      });
+
+      await supabase.from('output_actions').insert({
+        task_id: reviewOutputContent?.task_id || request.source_task_id,
+        company_id: companyId,
+        action_type: 'pin_to_memory',
+        action_data: {
+          task_title: reviewOutputContent?.task_title || request.summary,
+          role_name: roleName,
+        },
+        status: 'completed',
+        completed_by: user?.id,
+        completed_at: new Date().toISOString(),
+      } as any);
+      
+      toast.success('Pinned to company memory');
+      await onApprove(undefined, reviewNotes || undefined);
+      handleOpenChange(false);
+    } catch (error) {
+      toast.error('Failed to pin to memory');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleMarkExternal = async () => {
+    const output = reviewOutputContent?.completion_summary || reviewOutputContent?.output || request.proposed_content;
+    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
+    
+    setActionProcessing(true);
+    try {
+      await supabase.from('output_actions').insert({
+        task_id: reviewOutputContent?.task_id || request.source_task_id,
+        company_id: companyId,
+        action_type: 'mark_external',
+        action_data: {
+          task_title: reviewOutputContent?.task_title || request.summary,
+          output_summary: output.slice(0, 1000),
+          role_name: roleName,
+        },
+        status: 'pending',
+        notes: reviewNotes || null,
+      } as any);
+      
+      toast.success('Marked for external action', {
+        description: 'This will appear in your External Actions queue'
+      });
+      await onApprove(undefined, reviewNotes || undefined);
+      handleOpenChange(false);
+    } catch (error) {
+      toast.error('Failed to mark as external action');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleApproveWithoutAction = async () => {
+    await onApprove(undefined, reviewNotes || undefined);
+    handleOpenChange(false);
   };
 
   return (
@@ -404,14 +594,62 @@ export default function RequestReviewDialog({
           )}
         </div>
 
+        {/* Action Selector for review_output */}
+        {showActionSelector && isReviewOutputType && request.status === 'pending' && (
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <Label className="text-sm font-medium">What would you like to do with this output?</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <OutputActionCard
+                icon={Copy}
+                title="Implement in Lovable"
+                description="Copy as structured prompt"
+                onClick={handleCopyToLovable}
+                disabled={actionProcessing}
+                variant="primary"
+              />
+              <OutputActionCard
+                icon={Users}
+                title="Delegate to Role"
+                description="Assign follow-up to another role"
+                onClick={() => setShowDelegateDialog(true)}
+                disabled={actionProcessing}
+              />
+              <OutputActionCard
+                icon={BookmarkPlus}
+                title="Save as Reference"
+                description="Pin to company memory"
+                onClick={handlePinToMemory}
+                disabled={actionProcessing}
+              />
+              <OutputActionCard
+                icon={Clock}
+                title="External Action"
+                description="Mark for human follow-up"
+                onClick={handleMarkExternal}
+                disabled={actionProcessing}
+              />
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleApproveWithoutAction}
+              disabled={actionProcessing}
+              className="w-full"
+            >
+              <ChevronRight className="mr-1 h-4 w-4" />
+              Continue without action
+            </Button>
+          </div>
+        )}
+
         <DialogFooter className="gap-2 sm:gap-0">
-          {request.status === 'pending' ? (
+          {request.status === 'pending' && !showActionSelector ? (
             <>
               <Button
                 variant="outline"
                 onClick={handleDeny}
                 disabled={isProcessing}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <X className="mr-1 h-4 w-4" />
                 Deny
@@ -419,12 +657,20 @@ export default function RequestReviewDialog({
               <Button
                 onClick={handleApprove}
                 disabled={isProcessing}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 <Check className="mr-1 h-4 w-4" />
-                {isEditing || isEditingTask ? 'Approve with Edits' : 'Approve'}
+                {isEditing || isEditingTask ? 'Approve with Edits' : isReviewOutputType ? 'Choose Action' : 'Approve'}
               </Button>
             </>
+          ) : request.status === 'pending' && showActionSelector ? (
+            <Button
+              variant="outline"
+              onClick={() => setShowActionSelector(false)}
+              disabled={actionProcessing}
+            >
+              Back
+            </Button>
           ) : (
             <div className="flex w-full justify-between">
               {request.status === 'approved' && isTaskType && (
@@ -451,6 +697,17 @@ export default function RequestReviewDialog({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Delegate to Role Dialog */}
+      <DelegateToRoleDialog
+        open={showDelegateDialog}
+        onOpenChange={setShowDelegateDialog}
+        onDelegate={handleDelegateToRole}
+        companyId={companyId}
+        sourceRoleId={request.requesting_role_id}
+        sourceOutput={reviewOutputContent?.output || request.proposed_content}
+        isProcessing={actionProcessing}
+      />
     </Dialog>
   );
 }
