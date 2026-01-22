@@ -21,9 +21,9 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
   const [requests, setRequests] = useState<WorkflowRequest[]>([]);
   const [rolesWithStatus, setRolesWithStatus] = useState<RoleWithStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Store onError in a ref to avoid dependency issues causing infinite re-renders
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 
@@ -31,7 +31,6 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     if (!companyId) return;
 
     try {
-      // Fetch workflow requests with role names
       const { data: requestsData, error: requestsError } = await supabase
         .from('workflow_requests')
         .select(`
@@ -56,7 +55,6 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     if (!companyId) return;
 
     try {
-      // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('roles')
         .select('*')
@@ -65,21 +63,18 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
       if (rolesError) throw rolesError;
 
-      // Fetch task counts per role
       const { data: taskCounts } = await supabase
         .from('tasks')
         .select('role_id')
         .eq('company_id', companyId)
         .in('status', ['pending', 'running']);
 
-      // Fetch pending request counts per role
       const { data: requestCounts } = await supabase
         .from('workflow_requests')
         .select('requesting_role_id')
         .eq('company_id', companyId)
         .eq('status', 'pending');
 
-      // Build counts maps
       const taskCountMap = new Map<string, number>();
       taskCounts?.forEach(t => {
         taskCountMap.set(t.role_id, (taskCountMap.get(t.role_id) || 0) + 1);
@@ -157,69 +152,222 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     editedContent?: string,
     reviewNotes?: string
   ) => {
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-approve`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({
-          request_id: requestId,
-          action: 'approve',
-          edited_content: editedContent,
-          review_notes: reviewNotes,
-        }),
+    // Optimistic update
+    setRequests(prev => prev.map(r => 
+      r.id === requestId ? { ...r, status: 'approved' as const } : r
+    ));
+    setPendingCount(prev => Math.max(0, prev - 1));
+    setProcessingIds(prev => new Set(prev).add(requestId));
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-approve`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            request_id: requestId,
+            action: 'approve',
+            edited_content: editedContent,
+            review_notes: reviewNotes,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to approve request');
       }
-    );
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to approve request');
+      return response.json();
+    } catch (error) {
+      // Rollback on error
+      await loadRequests();
+      throw error;
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
     }
-
-    await loadAll();
-    return response.json();
-  }, [loadAll]);
+  }, [loadRequests]);
 
   const denyRequest = useCallback(async (
     requestId: string, 
     reviewerId: string,
     reviewNotes?: string
   ) => {
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-approve`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({
-          request_id: requestId,
-          action: 'deny',
-          review_notes: reviewNotes,
-        }),
+    // Optimistic update
+    setRequests(prev => prev.map(r => 
+      r.id === requestId ? { ...r, status: 'denied' as const } : r
+    ));
+    setPendingCount(prev => Math.max(0, prev - 1));
+    setProcessingIds(prev => new Set(prev).add(requestId));
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-approve`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            request_id: requestId,
+            action: 'deny',
+            review_notes: reviewNotes,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to deny request');
       }
+
+      return response.json();
+    } catch (error) {
+      // Rollback on error
+      await loadRequests();
+      throw error;
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
+    }
+  }, [loadRequests]);
+
+  const approveMultiple = useCallback(async (
+    requestIds: string[],
+    reviewerId: string
+  ) => {
+    // Optimistic update for all
+    setRequests(prev => prev.map(r => 
+      requestIds.includes(r.id) ? { ...r, status: 'approved' as const } : r
+    ));
+    setPendingCount(prev => Math.max(0, prev - requestIds.length));
+    setProcessingIds(prev => {
+      const next = new Set(prev);
+      requestIds.forEach(id => next.add(id));
+      return next;
+    });
+
+    const results = await Promise.allSettled(
+      requestIds.map(async (requestId) => {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-approve`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            },
+            body: JSON.stringify({
+              request_id: requestId,
+              action: 'approve',
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to approve request');
+        }
+
+        return response.json();
+      })
     );
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to deny request');
+    setProcessingIds(prev => {
+      const next = new Set(prev);
+      requestIds.forEach(id => next.delete(id));
+      return next;
+    });
+
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failureCount = results.filter(r => r.status === 'rejected').length;
+
+    if (failureCount > 0) {
+      await loadRequests();
     }
 
-    await loadAll();
-    return response.json();
-  }, [loadAll]);
+    return { successCount, failureCount };
+  }, [loadRequests]);
+
+  const denyMultiple = useCallback(async (
+    requestIds: string[],
+    reviewerId: string
+  ) => {
+    // Optimistic update for all
+    setRequests(prev => prev.map(r => 
+      requestIds.includes(r.id) ? { ...r, status: 'denied' as const } : r
+    ));
+    setPendingCount(prev => Math.max(0, prev - requestIds.length));
+    setProcessingIds(prev => {
+      const next = new Set(prev);
+      requestIds.forEach(id => next.add(id));
+      return next;
+    });
+
+    const results = await Promise.allSettled(
+      requestIds.map(async (requestId) => {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-approve`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            },
+            body: JSON.stringify({
+              request_id: requestId,
+              action: 'deny',
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to deny request');
+        }
+
+        return response.json();
+      })
+    );
+
+    setProcessingIds(prev => {
+      const next = new Set(prev);
+      requestIds.forEach(id => next.delete(id));
+      return next;
+    });
+
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failureCount = results.filter(r => r.status === 'rejected').length;
+
+    if (failureCount > 0) {
+      await loadRequests();
+    }
+
+    return { successCount, failureCount };
+  }, [loadRequests]);
 
   return {
     requests,
     rolesWithStatus,
     pendingCount,
     isLoading,
+    processingIds,
     loadAll,
     approveRequest,
     denyRequest,
+    approveMultiple,
+    denyMultiple,
   };
 }
