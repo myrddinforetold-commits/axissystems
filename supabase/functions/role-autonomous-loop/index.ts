@@ -5,6 +5,65 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Technical architecture context for roles to understand what exists
+const AXIS_TECHNICAL_CONTEXT = `
+## Axis Systems Technical Architecture (Current State)
+
+### Database Schema (PostgreSQL)
+Tables that ALREADY EXIST (do not propose creating these):
+- roles: AI role definitions with mandates, system prompts, authority levels (observer/advisor/operator/executive/orchestrator)
+- tasks: Assigned work items with completion criteria, attempt tracking, max 3 retries
+- task_attempts: Execution history with AI outputs and pass/fail/unclear evaluations
+- workflow_requests: Human-in-the-loop approval queue (start_task, send_memo, continue_task, suggest_next_task)
+- role_memos: Inter-role communications (from_role_id → to_role_id with content)
+- company_memory: Shared organizational knowledge pinned by users (company-wide visibility)
+- role_memory: Private role-specific learnings (role-scoped visibility)
+- role_objectives: Current goals for each role with priority and status
+- role_messages: Chat history between humans and roles
+- company_grounding: Business context, products, entities, constraints, aspirations
+- company_context: Company stage (early/growth/established) and grounding status
+- profiles: User display names and avatars
+- company_members: User-company associations with roles (owner/member)
+- cos_reports: Chief of Staff generated reports
+
+### Backend Functions (Deployed)
+Functions that ALREADY EXIST:
+- role-chat: Handles human-role conversations with streaming responses
+- role-autonomous-loop: This function - Observe-Decide-Propose cycle
+- task-execute: Runs tasks with AI, evaluates output, handles retries
+- workflow-approve: Processes approval/denial of workflow requests
+- grounding-summary: Generates AI summary of grounding data
+- cos-summary: Chief of Staff reporting and analysis
+
+### Frontend (React/TypeScript/Tailwind)
+UI that ALREADY EXISTS:
+- Role chat interface with streaming AI responses
+- Workflow dashboard for approving/denying requests
+- Task panel with execution monitoring
+- Company memory panel for pinning knowledge
+- Grounding wizard for company onboarding
+- Role activation wizard with objective setting
+- CoS (Chief of Staff) reporting interface
+
+### External Integrations: NONE AVAILABLE
+The system currently has NO external integrations:
+- ❌ No email sending (cannot send emails to real people)
+- ❌ No CRM access (no Salesforce, HubSpot, etc.)
+- ❌ No analytics platforms (no Mixpanel, Amplitude, etc.)
+- ❌ No external APIs or webhooks
+- ❌ No calendar/scheduling integrations
+- ❌ No Slack/Teams messaging
+- ❌ No social media posting
+- ❌ No code deployment capabilities
+
+### What Roles CAN Do Within This System:
+- Create documents, specifications, research, and analysis
+- Send memos to other roles (internal communication only)
+- Propose tasks that produce written deliverables
+- Access and reference grounding data and company memory
+- Mark objectives as complete when criteria are met
+`;
+
 interface RoleContext {
   role: {
     id: string;
@@ -196,6 +255,8 @@ ${gd.currentStateSummary.openQuestions.map(q => `? ${q}`).join("\n")}
 CURRENT CONTEXT:
 Company: ${context.company.name}
 ${stageContext}
+
+${AXIS_TECHNICAL_CONTEXT}
 ${groundingContext}
 
 ${objectivesText}
@@ -241,6 +302,14 @@ VALID task example: "Document the email outreach strategy and template requireme
 INVALID task example: "Deploy email automation system to production"
 VALID task example: "Create technical specification for logging infrastructure"
 INVALID task example: "Deploy Logging SDK to staging environment"
+VALID task example: "Document the existing workflow_requests approval flow"
+INVALID task example: "Develop a new approval system for workflows"
+
+## Referencing Existing Systems:
+When your work relates to existing infrastructure (see Technical Architecture above), reference it accurately:
+- Use actual table names (e.g., "role_memos" not "the messaging system")
+- Acknowledge what exists before proposing extensions
+- If documenting architecture, describe what IS, not what you imagine
 
 ---
 AUTONOMOUS LOOP INSTRUCTIONS:
