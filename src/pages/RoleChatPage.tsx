@@ -25,7 +25,10 @@ interface Role {
 }
 
 export default function RoleChatPage() {
-  const { id: companyId, roleId } = useParams<{ id: string; roleId: string }>();
+  const params = useParams<{ id?: string; companyId?: string; roleId: string }>();
+  // Support both route patterns: /companies/:id/roles/:roleId/chat and /company/:companyId/role/:roleId
+  const companyId = params.id || params.companyId;
+  const roleId = params.roleId;
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

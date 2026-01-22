@@ -1,0 +1,262 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Mail, 
+  Play, 
+  SkipForward, 
+  Lightbulb,
+  ArrowRight,
+  MessageSquare,
+  Check,
+  X,
+  ExternalLink
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import type { WorkflowRequest } from '@/hooks/useWorkflowRequests';
+
+interface RequestReviewDialogProps {
+  request: WorkflowRequest | null;
+  companyId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onApprove: (editedContent?: string, notes?: string) => Promise<void>;
+  onDeny: (notes?: string) => Promise<void>;
+  isProcessing?: boolean;
+}
+
+const typeConfig = {
+  send_memo: {
+    label: 'Send Memo',
+    icon: Mail,
+    description: 'The role wants to send a memo to another role.',
+    allowEdit: true,
+  },
+  start_task: {
+    label: 'Start Task',
+    icon: Play,
+    description: 'The role is proposing to start a new task.',
+    allowEdit: true,
+  },
+  continue_task: {
+    label: 'Continue Task',
+    icon: SkipForward,
+    description: 'The role wants to continue working on the current task.',
+    allowEdit: false,
+  },
+  suggest_next_task: {
+    label: 'Suggest Next Task',
+    icon: Lightbulb,
+    description: 'The role is suggesting a follow-up task after completing its current work.',
+    allowEdit: true,
+  },
+};
+
+export default function RequestReviewDialog({
+  request,
+  companyId,
+  open,
+  onOpenChange,
+  onApprove,
+  onDeny,
+  isProcessing,
+}: RequestReviewDialogProps) {
+  const navigate = useNavigate();
+  const [editedContent, setEditedContent] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+
+  if (!request) return null;
+
+  const type = request.request_type as keyof typeof typeConfig;
+  const typeInfo = typeConfig[type] || typeConfig.send_memo;
+  const TypeIcon = typeInfo.icon;
+
+  const fromRoleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Unknown';
+  const toRoleName = request.target_role?.display_name || request.target_role?.name;
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setEditedContent('');
+      setReviewNotes('');
+      setIsEditing(false);
+    }
+    onOpenChange(newOpen);
+  };
+
+  const handleApprove = async () => {
+    await onApprove(
+      isEditing ? editedContent : undefined,
+      reviewNotes || undefined
+    );
+    handleOpenChange(false);
+  };
+
+  const handleDeny = async () => {
+    await onDeny(reviewNotes || undefined);
+    handleOpenChange(false);
+  };
+
+  const handleViewRole = () => {
+    navigate(`/company/${companyId}/role/${request.requesting_role_id}`);
+    handleOpenChange(false);
+  };
+
+  const startEditing = () => {
+    setEditedContent(request.proposed_content);
+    setIsEditing(true);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-sm">
+              <TypeIcon className="mr-1 h-4 w-4" />
+              {typeInfo.label}
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+            </span>
+          </div>
+          <DialogTitle className="text-xl">Review Workflow Request</DialogTitle>
+          <DialogDescription>{typeInfo.description}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* From/To section */}
+          <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">From:</span>
+              <span className="font-medium">{fromRoleName}</span>
+            </div>
+            {toRoleName && (
+              <>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">To:</span>
+                  <span className="font-medium">{toRoleName}</span>
+                </div>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleViewRole}
+              className="ml-auto"
+            >
+              <ExternalLink className="mr-1 h-3 w-3" />
+              View Role Chat
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Summary */}
+          <div>
+            <Label className="text-sm text-muted-foreground">Summary</Label>
+            <p className="mt-1 text-sm font-medium">{request.summary}</p>
+          </div>
+
+          {/* Proposed Content */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-sm text-muted-foreground">
+                {type === 'send_memo' ? 'Memo Content' : 'Proposed Content'}
+              </Label>
+              {typeInfo.allowEdit && !isEditing && request.status === 'pending' && (
+                <Button variant="ghost" size="sm" onClick={startEditing}>
+                  Edit before approving
+                </Button>
+              )}
+            </div>
+            
+            {isEditing ? (
+              <Textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                rows={8}
+                className="font-mono text-sm"
+              />
+            ) : (
+              <div className="rounded-md border bg-muted/50 p-4">
+                <pre className="whitespace-pre-wrap text-sm font-mono">
+                  {request.proposed_content}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          {/* Review Notes */}
+          {request.status === 'pending' && (
+            <div>
+              <Label htmlFor="review-notes" className="text-sm text-muted-foreground">
+                <MessageSquare className="inline mr-1 h-3 w-3" />
+                Review Notes (Optional)
+              </Label>
+              <Textarea
+                id="review-notes"
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                placeholder="Add any notes about your decision..."
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          {/* Existing review notes if already reviewed */}
+          {request.review_notes && request.status !== 'pending' && (
+            <div>
+              <Label className="text-sm text-muted-foreground">Review Notes</Label>
+              <p className="mt-1 text-sm italic text-muted-foreground border-l-2 border-muted pl-2">
+                {request.review_notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          {request.status === 'pending' ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleDeny}
+                disabled={isProcessing}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <X className="mr-1 h-4 w-4" />
+                Deny
+              </Button>
+              <Button
+                onClick={handleApprove}
+                disabled={isProcessing}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Check className="mr-1 h-4 w-4" />
+                {isEditing ? 'Approve with Edits' : 'Approve'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => handleOpenChange(false)}>
+              Close
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

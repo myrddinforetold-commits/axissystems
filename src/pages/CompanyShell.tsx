@@ -5,9 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, LogOut, ArrowLeft, Users, Bot } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Building2, LogOut, ArrowLeft, Users, Bot, Activity } from 'lucide-react';
 import TeamTab from '@/components/company/TeamTab';
 import RolesTab from '@/components/roles/RolesTab';
+import WorkflowTab from '@/components/workflow/WorkflowTab';
 
 interface Company {
   id: string;
@@ -31,6 +33,7 @@ export default function CompanyShell() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingWorkflowCount, setPendingWorkflowCount] = useState(0);
 
   useEffect(() => {
     async function fetchCompany() {
@@ -90,6 +93,15 @@ export default function CompanyShell() {
       // Find current user's role
       const currentUserMember = formattedMembers.find((m) => m.user_id === user.id);
       setUserRole(currentUserMember?.role ?? null);
+
+      // Fetch pending workflow requests count
+      const { count } = await supabase
+        .from('workflow_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', id)
+        .eq('status', 'pending');
+      
+      setPendingWorkflowCount(count || 0);
 
       setLoading(false);
     }
@@ -165,6 +177,17 @@ export default function CompanyShell() {
               <Bot className="h-4 w-4" />
               Roles
             </TabsTrigger>
+            {isOwner && (
+              <TabsTrigger value="workflow" className="flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Workflow
+                {pendingWorkflowCount > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
+                    {pendingWorkflowCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="team">
@@ -180,6 +203,12 @@ export default function CompanyShell() {
           <TabsContent value="roles">
             <RolesTab companyId={company.id} isOwner={isOwner} />
           </TabsContent>
+
+          {isOwner && (
+            <TabsContent value="workflow">
+              <WorkflowTab companyId={company.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
