@@ -13,7 +13,8 @@ import {
   X,
   Eye,
   Clock,
-  Copy
+  Copy,
+  ClipboardCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -92,6 +93,11 @@ const typeConfig = {
     label: 'Suggestion',
     icon: Lightbulb,
     color: 'bg-amber-500/10 text-amber-600 border-amber-200',
+  },
+  review_output: {
+    label: 'Review Output',
+    icon: ClipboardCheck,
+    color: 'bg-cyan-500/10 text-cyan-600 border-cyan-200',
   },
 };
 

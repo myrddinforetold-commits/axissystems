@@ -716,7 +716,7 @@ Do you have any follow-up suggestions?`
       const MAX_OUTPUT_PREVIEW = 2500;
       const isOutputTruncated = modelOutput.length > MAX_OUTPUT_PREVIEW;
       
-      const completionMessage = `✅ **Task Completed**
+      const completionMessage = `✅ **Task Completed - Awaiting Review**
 
 **Task:** ${task.title}
 
@@ -727,13 +727,33 @@ ${modelOutput.substring(0, MAX_OUTPUT_PREVIEW)}${isOutputTruncated ? `\n\n---\n\
 
 ---
 
-📊 *Completed in ${attemptNumber} attempt(s).*`;
+📊 *Completed in ${attemptNumber} attempt(s).*
+
+⏳ *Waiting for human review before continuing autonomous work.*`;
 
       await supabaseService.from("role_messages").insert({
         role_id: task.role_id,
         company_id: task.company_id,
         sender: "ai",
         content: completionMessage,
+      });
+
+      // Create a review_output workflow request so human can review before autonomous work continues
+      await supabaseService.from("workflow_requests").insert({
+        company_id: task.company_id,
+        requesting_role_id: task.role_id,
+        request_type: "review_output",
+        summary: `Review output: ${task.title}`,
+        proposed_content: JSON.stringify({
+          task_id: task.id,
+          task_title: task.title,
+          task_description: task.description,
+          completion_criteria: task.completion_criteria,
+          output: modelOutput,
+          attempts: attemptNumber,
+          completion_summary: completionSummary,
+        }),
+        source_task_id: task.id,
       });
     } else if (newStatus === "blocked") {
       const blockedMessage = `⚠️ **Task Blocked - Needs Review**

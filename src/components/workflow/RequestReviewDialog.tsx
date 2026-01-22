@@ -23,7 +23,8 @@ import {
   Check,
   X,
   ExternalLink,
-  Copy
+  Copy,
+  ClipboardCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -64,6 +65,12 @@ const typeConfig = {
     description: 'The role is suggesting a follow-up task after completing its current work.',
     allowEdit: true,
   },
+  review_output: {
+    label: 'Review Output',
+    icon: ClipboardCheck,
+    description: 'Review the completed task output before autonomous work continues.',
+    allowEdit: false,
+  },
 };
 
 // Helper to parse task content from JSON
@@ -78,6 +85,27 @@ const parseTaskContent = (content: string) => {
         affected_files?: string[];
         affected_tables?: string[];
         implementation_notes?: string;
+      };
+    }
+  } catch {
+    // Not JSON, return null
+  }
+  return null;
+};
+
+// Helper to parse review_output content
+const parseReviewOutputContent = (content: string) => {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.task_title && parsed.output) {
+      return parsed as {
+        task_id: string;
+        task_title: string;
+        task_description: string;
+        completion_criteria: string;
+        output: string;
+        attempts: number;
+        completion_summary: string | null;
       };
     }
   } catch {
@@ -141,7 +169,9 @@ export default function RequestReviewDialog({
   const typeInfo = typeConfig[type] || typeConfig.send_memo;
   const TypeIcon = typeInfo.icon;
   const isTaskType = type === 'start_task' || type === 'suggest_next_task';
+  const isReviewOutputType = type === 'review_output';
   const taskContent = parseTaskContent(request.proposed_content);
+  const reviewOutputContent = isReviewOutputType ? parseReviewOutputContent(request.proposed_content) : null;
 
   const fromRoleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Unknown';
   const toRoleName = request.target_role?.display_name || request.target_role?.name;
@@ -293,6 +323,31 @@ export default function RequestReviewDialog({
                 rows={8}
                 className="font-mono text-sm"
               />
+            ) : isReviewOutputType && reviewOutputContent ? (
+              <div className="rounded-md border bg-muted/50 p-4 space-y-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Task</Label>
+                  <p className="font-medium">{reviewOutputContent.task_title}</p>
+                </div>
+                {reviewOutputContent.completion_summary && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Summary</Label>
+                    <p className="text-sm">{reviewOutputContent.completion_summary}</p>
+                  </div>
+                )}
+                <Separator />
+                <div>
+                  <Label className="text-xs text-muted-foreground">Task Output</Label>
+                  <div className="mt-2 rounded-md border bg-background p-3 max-h-64 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm">
+                      {reviewOutputContent.output}
+                    </pre>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Completed in {reviewOutputContent.attempts} attempt(s)
+                </div>
+              </div>
             ) : isTaskType && taskContent ? (
               <div className="rounded-md border bg-muted/50 p-4 space-y-3">
                 <div>
