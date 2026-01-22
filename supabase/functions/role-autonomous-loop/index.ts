@@ -13,12 +13,25 @@ interface RoleContext {
     system_prompt: string;
     workflow_status: string;
     company_id: string;
+    is_activated: boolean;
   };
   company: {
     id: string;
     name: string;
   };
   companyStage: string | null;
+  isGrounded: boolean;
+  groundingData: {
+    products: Array<{ name: string; description: string }>;
+    entities: Array<{ name: string; type: string }>;
+    intendedCustomer: string | null;
+    constraints: Array<{ type: string; description: string }>;
+    currentStateSummary: {
+      knownFacts: string[];
+      assumptions: string[];
+      openQuestions: string[];
+    } | null;
+  } | null;
   objectives: Array<{
     id: string;
     title: string;
@@ -43,7 +56,7 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
   // Fetch role
   const { data: role, error: roleError } = await supabase
     .from("roles")
-    .select("id, name, mandate, system_prompt, workflow_status, company_id")
+    .select("id, name, mandate, system_prompt, workflow_status, company_id, is_activated")
     .eq("id", roleId)
     .single();
 
@@ -59,12 +72,33 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
     .eq("id", role.company_id)
     .single();
 
-  // Fetch company stage
+  // Fetch company context (stage + grounding status)
   const { data: contextData } = await supabase
     .from("company_context")
-    .select("stage")
+    .select("stage, is_grounded")
     .eq("company_id", role.company_id)
     .single();
+
+  // Fetch grounding data if grounded
+  let groundingData = null;
+  if (contextData?.is_grounded) {
+    const { data: grounding } = await supabase
+      .from("company_grounding")
+      .select("products, entities, intended_customer, constraints, current_state_summary")
+      .eq("company_id", role.company_id)
+      .eq("status", "confirmed")
+      .single();
+    
+    if (grounding) {
+      groundingData = {
+        products: grounding.products || [],
+        entities: grounding.entities || [],
+        intendedCustomer: grounding.intended_customer,
+        constraints: grounding.constraints || [],
+        currentStateSummary: grounding.current_state_summary,
+      };
+    }
+  }
 
   // Fetch active objectives
   const { data: objectives } = await supabase
@@ -102,6 +136,8 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
     role,
     company: company || { id: role.company_id, name: "Unknown" },
     companyStage: contextData?.stage || null,
+    isGrounded: contextData?.is_grounded || false,
+    groundingData,
     objectives: objectives || [],
     recentMemory: memory || [],
     pendingRequests: pendingRequests?.length || 0,
@@ -119,6 +155,28 @@ function buildAutonomousPrompt(context: RoleContext): string {
           : "Respect established processes, optimize for efficiency."
       }`
     : "";
+
+  // Include grounding data as source of truth
+  let groundingContext = "";
+  if (context.groundingData) {
+    const gd = context.groundingData;
+    groundingContext = `
+---
+COMPANY GROUNDING (Source of Truth):
+${gd.products.length > 0 ? `Products/Services: ${gd.products.map(p => p.name).join(", ")}` : "No products defined yet."}
+${gd.entities.length > 0 ? `Entities: ${gd.entities.map(e => `${e.name} (${e.type})`).join(", ")}` : ""}
+${gd.intendedCustomer ? `Target Customer: ${gd.intendedCustomer}` : "Target customer not defined."}
+${gd.constraints.length > 0 ? `Constraints: ${gd.constraints.map(c => `[${c.type}] ${c.description}`).join("; ")}` : ""}
+
+${gd.currentStateSummary ? `
+Known Facts:
+${gd.currentStateSummary.knownFacts.map(f => `• ${f}`).join("\n")}
+
+Open Questions:
+${gd.currentStateSummary.openQuestions.map(q => `? ${q}`).join("\n")}
+` : ""}
+---`;
+  }
 
   const objectivesText = context.objectives.length > 0
     ? `Current Objectives:\n${context.objectives.map((o, i) => `${i + 1}. ${o.title}: ${o.description}`).join("\n")}`
@@ -138,6 +196,7 @@ function buildAutonomousPrompt(context: RoleContext): string {
 CURRENT CONTEXT:
 Company: ${context.company.name}
 ${stageContext}
+${groundingContext}
 
 ${objectivesText}
 
@@ -150,6 +209,8 @@ Pending Workflow Requests: ${context.pendingRequests}
 ---
 AUTONOMOUS LOOP INSTRUCTIONS:
 You are in an autonomous loop. Analyze the context above and decide what to do next.
+
+CRITICAL: Base all decisions on KNOWN FACTS from grounding. Do NOT infer or assume information not provided.
 
 Respond with a JSON object:
 {
@@ -179,6 +240,7 @@ Rules:
 - If objectives are complete, propose a new one or mark complete
 - Be specific and actionable in proposals
 - Consider company stage when calibrating urgency
+- NEVER propose strategy that contradicts known facts or makes assumptions about unknowns
 `;
 }
 
@@ -216,6 +278,30 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // GROUNDING CHECK: If company is not grounded, block autonomous behavior
+    if (!context.isGrounded) {
+      return new Response(
+        JSON.stringify({
+          action: "blocked",
+          mode: "grounding_required",
+          reasoning: "Company has not completed the grounding phase. Autonomous behavior is disabled until foundational facts are established.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ACTIVATION CHECK: If role is not activated, block autonomous behavior
+    if (!context.role.is_activated) {
+      return new Response(
+        JSON.stringify({
+          action: "blocked",
+          mode: "activation_required",
+          reasoning: "Role has not been activated. Complete the activation wizard first.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // If already awaiting approval, don't run loop

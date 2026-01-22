@@ -14,6 +14,7 @@ import { companyTemplates, CompanyTemplate } from '@/data/roleTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Users, Briefcase, User, Sprout, TrendingUp, Building2, ChevronRight } from 'lucide-react';
+import GroundingWizard from '@/components/grounding/GroundingWizard';
 
 interface TemplateSelectionDialogProps {
   open: boolean;
@@ -55,7 +56,7 @@ export default function TemplateSelectionDialog({
   companyId,
   onComplete,
 }: TemplateSelectionDialogProps) {
-  const [step, setStep] = useState<'stage' | 'template'>('stage');
+  const [step, setStep] = useState<'stage' | 'grounding' | 'template'>('stage');
   const [selectedStage, setSelectedStage] = useState<string>('early');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -69,7 +70,7 @@ export default function TemplateSelectionDialog({
         return;
       }
 
-      // Save company stage context
+      // Save company stage context (without is_grounded - defaults to false)
       const { error } = await supabase.from('company_context').insert({
         company_id: companyId,
         stage: selectedStage,
@@ -78,13 +79,19 @@ export default function TemplateSelectionDialog({
 
       if (error) throw error;
       
-      setStep('template');
+      // Move to grounding phase (MANDATORY)
+      setStep('grounding');
     } catch (error) {
       console.error('Error saving company stage:', error);
       toast.error('Failed to save company stage');
     } finally {
       setIsApplying(false);
     }
+  };
+
+  const handleGroundingComplete = () => {
+    // Grounding confirmed - now move to template selection
+    setStep('template');
   };
 
   const handleApplyTemplate = async (template: CompanyTemplate) => {
@@ -144,13 +151,26 @@ export default function TemplateSelectionDialog({
 
   const handleSkip = () => {
     if (step === 'stage') {
-      // Skip stage selection, go to templates
-      setStep('template');
-    } else {
+      // Even when skipping stage, still need grounding
+      setStep('grounding');
+    } else if (step === 'template') {
       // Skip template selection, complete
       onComplete();
     }
+    // Note: Cannot skip grounding phase - it's mandatory
   };
+
+  // Render grounding wizard as a separate dialog when in grounding step
+  if (step === 'grounding') {
+    return (
+      <GroundingWizard
+        open={open}
+        companyId={companyId}
+        companyStage={selectedStage}
+        onComplete={handleGroundingComplete}
+      />
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
