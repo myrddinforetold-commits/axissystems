@@ -12,21 +12,29 @@ import CompanyMemoryPanel from "@/components/memory/CompanyMemoryPanel";
 import AssignTaskDialog from "@/components/tasks/AssignTaskDialog";
 import TaskPanel from "@/components/tasks/TaskPanel";
 import ActiveTaskBanner from "@/components/tasks/ActiveTaskBanner";
-import RoleActivationWizard from "@/components/wizard/RoleActivationWizard";
+import RoleObjectiveBanner from "@/components/workflow/RoleObjectiveBanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, ArrowLeft, Eye } from "lucide-react";
 
 interface Role {
   id: string;
   name: string;
   mandate: string;
   company_id: string;
+  workflow_status: string;
+}
+
+interface RoleObjective {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
 }
 
 export default function RoleChatPage() {
   const params = useParams<{ id?: string; companyId?: string; roleId: string }>();
-  // Support both route patterns: /companies/:id/roles/:roleId/chat and /company/:companyId/role/:roleId
   const companyId = params.id || params.companyId;
   const roleId = params.roleId;
   const { user } = useAuth();
@@ -35,14 +43,13 @@ export default function RoleChatPage() {
 
   const [role, setRole] = useState<Role | null>(null);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
+  const [currentObjective, setCurrentObjective] = useState<RoleObjective | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [showMemoryPanel, setShowMemoryPanel] = useState(false);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showActivationWizard, setShowActivationWizard] = useState(false);
-  const [wizardCompleted, setWizardCompleted] = useState(false);
 
   const handleChatError = useCallback((err: string) => {
     toast({
@@ -102,7 +109,7 @@ export default function RoleChatPage() {
       try {
         const { data, error: fetchError } = await supabase
           .from("roles")
-          .select("id, name, mandate, company_id")
+          .select("id, name, mandate, company_id, workflow_status")
           .eq("id", roleId)
           .eq("company_id", companyId)
           .single();
@@ -121,6 +128,20 @@ export default function RoleChatPage() {
         
         if (companyData?.name) {
           setCompanyName(companyData.name);
+        }
+
+        // Fetch current active objective (use any cast for new table)
+        const { data: objectiveData } = await (supabase as any)
+          .from("role_objectives")
+          .select("id, title, description, status")
+          .eq("role_id", roleId)
+          .eq("status", "active")
+          .order("priority", { ascending: true })
+          .limit(1)
+          .single();
+        
+        if (objectiveData) {
+          setCurrentObjective(objectiveData as RoleObjective);
         }
 
         // Check if user is owner
@@ -145,34 +166,6 @@ export default function RoleChatPage() {
     fetchRole();
   }, [roleId, companyId, user, loadMessages]);
 
-  // Show activation wizard for roles with no messages
-  useEffect(() => {
-    if (!loading && !isLoading && messages.length === 0 && role && !wizardCompleted) {
-      setShowActivationWizard(true);
-    }
-  }, [loading, isLoading, messages.length, role, wizardCompleted]);
-
-  const handleWizardComplete = () => {
-    setShowActivationWizard(false);
-    setWizardCompleted(true);
-  };
-
-  const handleEnableTaskMode = async () => {
-    if (!roleId) return;
-    try {
-      await supabase
-        .from("roles")
-        .update({ task_mode_enabled: true })
-        .eq("id", roleId);
-      toast({
-        title: "Task Mode enabled",
-        description: "You can now assign structured tasks to this role.",
-      });
-    } catch (error) {
-      console.error("Error enabling task mode:", error);
-    }
-  };
-
   const handleBack = () => {
     navigate(`/companies/${companyId}`);
   };
@@ -192,7 +185,6 @@ export default function RoleChatPage() {
         title: "Task assigned",
         description: "Task execution will begin shortly.",
       });
-      // Start execution
       startTaskExecution(newTask.id);
     }
   };
@@ -255,6 +247,28 @@ export default function RoleChatPage() {
         onOpenTasks={() => setShowTaskPanel(true)}
         hasActiveTask={activeTask !== null && (activeTask.status === "running" || activeTask.status === "pending")}
       />
+
+      {/* Inspection Mode Banner */}
+      <div className="border-b border-border bg-muted/30 px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Eye className="h-4 w-4" />
+          <span>Inspection Mode</span>
+          <span className="text-xs">— Chat is for auditing role activity. Govern via Workflow.</span>
+        </div>
+        <Badge 
+          variant={role.workflow_status === 'awaiting_approval' ? 'destructive' : 'secondary'}
+          className="text-xs"
+        >
+          {role.workflow_status === 'idle' && 'Idle'}
+          {role.workflow_status === 'in_task' && 'Working'}
+          {role.workflow_status === 'awaiting_approval' && 'Awaiting Approval'}
+        </Badge>
+      </div>
+
+      {/* Current Objective Banner */}
+      {currentObjective && (
+        <RoleObjectiveBanner objective={currentObjective} />
+      )}
       
       {/* Active Task Banner */}
       {activeTask && (activeTask.status === "running" || activeTask.status === "pending") && (
@@ -266,30 +280,17 @@ export default function RoleChatPage() {
         />
       )}
 
-      {/* Show Activation Wizard or Chat */}
-      {showActivationWizard && role && companyId ? (
-        <RoleActivationWizard
-          role={role}
-          companyId={companyId}
-          companyName={companyName}
-          onSendMessage={sendMessage}
-          onComplete={handleWizardComplete}
-          onEnableTaskMode={handleEnableTaskMode}
-        />
-      ) : (
-        <>
-          <ChatMessages 
-            messages={messages} 
-            isLoading={isLoading}
-            pinnedMessageIds={pinnedMessageIds}
-            onPinToMemory={handlePinToMemory}
-          />
-          <ChatInput
-            onSend={sendMessage}
-            isStreaming={isStreaming}
-          />
-        </>
-      )}
+      {/* Chat - Always visible for inspection */}
+      <ChatMessages 
+        messages={messages} 
+        isLoading={isLoading}
+        pinnedMessageIds={pinnedMessageIds}
+        onPinToMemory={handlePinToMemory}
+      />
+      <ChatInput
+        onSend={sendMessage}
+        isStreaming={isStreaming}
+      />
       
       {/* Memory Panel */}
       {companyId && (
