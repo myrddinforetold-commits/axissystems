@@ -33,26 +33,26 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-transform duration-300",
+        "fixed top-0 left-0 right-0 z-50 transition-transform duration-300 group",
         isVisible ? "translate-y-0" : "-translate-y-full"
       )}
     >
-      {/* Metallic rainbow gradient background */}
-      <div className="absolute inset-0 bg-alien-metallic bg-[length:200%_100%] animate-holographic-shift" />
+      {/* Dark gradient background with hover effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-zinc-900 to-black transition-all duration-500 group-hover:from-zinc-900 group-hover:via-zinc-800 group-hover:to-zinc-900" />
       
-      {/* Dark overlay for depth */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      {/* Backdrop blur for depth */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-md" />
       
-      {/* Metallic shimmer effect */}
+      {/* Subtle shimmer on hover */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-metallic-shimmer" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/0 to-transparent transition-all duration-500 group-hover:via-white/5" />
       </div>
       
-      {/* Bottom edge glow */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-alien-border bg-[length:200%_100%] animate-border-glow" />
+      {/* Bottom edge glow - intensifies on hover */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500 group-hover:via-cyan-500/40 group-hover:h-[2px]" />
       
       {/* Subtle top highlight */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent transition-all duration-500 group-hover:via-white/20" />
 
       <nav className="relative w-full px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 sm:h-24 lg:h-28 items-center justify-between">
