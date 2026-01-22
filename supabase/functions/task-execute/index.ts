@@ -711,6 +711,51 @@ Do you have any follow-up suggestions?`
       .eq("id", task_id)
       .single();
 
+    // Log task completion/blocked status to role's chat as audit trail
+    if (newStatus === "completed") {
+      const completionMessage = `✅ **Task Completed**
+
+**Task:** ${task.title}
+
+---
+
+**Output:**
+${modelOutput.substring(0, 1000)}${modelOutput.length > 1000 ? '...' : ''}
+
+---
+
+📊 *Completed in ${attemptNumber} attempt(s).*`;
+
+      await supabaseService.from("role_messages").insert({
+        role_id: task.role_id,
+        company_id: task.company_id,
+        sender: "ai",
+        content: completionMessage,
+      });
+    } else if (newStatus === "blocked") {
+      const blockedMessage = `⚠️ **Task Blocked - Needs Review**
+
+**Task:** ${task.title}
+
+---
+
+**Issue:**
+${evaluationReason || "Task could not be completed after maximum attempts."}
+
+---
+
+📊 *Attempted ${attemptNumber} time(s). Max attempts: ${task.max_attempts}.*
+
+⏳ *Awaiting human review.*`;
+
+      await supabaseService.from("role_messages").insert({
+        role_id: task.role_id,
+        company_id: task.company_id,
+        sender: "ai",
+        content: blockedMessage,
+      });
+    }
+
     const shouldRetry = evaluationResult === "fail" && attemptNumber < task.max_attempts;
 
     // Auto-continue execution if retry needed (self-invoke for next attempt)
