@@ -125,9 +125,21 @@ export default function RoleChatPage() {
         const roleData = data as unknown as Role;
         setRole(roleData);
         
-        // Show activation wizard if role is not yet activated
-        if (!roleData.is_activated) {
+        // Check for existing objectives (could be auto-created from memos)
+        const { data: existingObjectives } = await supabase
+          .from("role_objectives")
+          .select("id")
+          .eq("role_id", roleId)
+          .eq("status", "active")
+          .limit(1);
+
+        // Show activation wizard only if not activated AND no objectives exist
+        if (!roleData.is_activated && (!existingObjectives || existingObjectives.length === 0)) {
           setShowActivationWizard(true);
+        } else if (!roleData.is_activated && existingObjectives && existingObjectives.length > 0) {
+          // Role has objectives from memos - auto-activate silently
+          await supabase.from("roles").update({ is_activated: true }).eq("id", roleId);
+          roleData.is_activated = true;
         }
 
         // Fetch company name
