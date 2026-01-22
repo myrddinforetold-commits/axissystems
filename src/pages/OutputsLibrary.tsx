@@ -297,9 +297,9 @@ export default function OutputsLibrary() {
                       <div>
                         <p className="font-medium">{task.title}</p>
                         {task.completion_summary && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {task.completion_summary}
-                          </p>
+                          <div className="text-xs text-muted-foreground line-clamp-1 prose prose-xs dark:prose-invert max-w-none">
+                            <ReactMarkdown>{task.completion_summary}</ReactMarkdown>
+                          </div>
                         )}
                       </div>
                     </TableCell>
@@ -374,8 +374,9 @@ export default function OutputsLibrary() {
               </div>
 
               {selectedTask.completion_summary && (
-                <div className="rounded-md bg-primary/10 p-3 text-sm">
-                  <strong>Summary:</strong> {selectedTask.completion_summary}
+                <div className="rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none">
+                  <strong>Summary:</strong>
+                  <ReactMarkdown>{selectedTask.completion_summary}</ReactMarkdown>
                 </div>
               )}
 

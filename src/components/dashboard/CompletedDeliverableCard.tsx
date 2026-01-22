@@ -86,9 +86,9 @@ export default function CompletedDeliverableCard({ task, companyId }: CompletedD
                 <h4 className="truncate text-sm font-medium">{task.title}</h4>
               </div>
             {task.completion_summary && (
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {task.completion_summary}
-              </p>
+              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground prose prose-xs dark:prose-invert max-w-none">
+                <ReactMarkdown>{task.completion_summary}</ReactMarkdown>
+              </div>
             )}
             </div>
           </div>
@@ -140,8 +140,9 @@ export default function CompletedDeliverableCard({ task, companyId }: CompletedD
             </div>
 
             {task.completion_summary && (
-              <div className="rounded-md bg-primary/10 p-3 text-sm">
-                <strong className="text-primary">Summary:</strong> {task.completion_summary}
+              <div className="rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none">
+                <strong className="text-primary">Summary:</strong>
+                <ReactMarkdown>{task.completion_summary}</ReactMarkdown>
               </div>
             )}
 
