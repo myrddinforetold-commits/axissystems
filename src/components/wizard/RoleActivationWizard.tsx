@@ -12,9 +12,15 @@ interface Role {
   company_id: string;
 }
 
+interface Company {
+  id: string;
+  name: string;
+}
+
 interface RoleActivationWizardProps {
   role: Role;
   companyId: string;
+  companyName?: string;
   onSendMessage: (message: string) => void;
   onComplete: () => void;
   onEnableTaskMode: () => Promise<void>;
@@ -25,6 +31,7 @@ type WizardStep = "company-stage" | "activation-message" | "task-mode-intro";
 export default function RoleActivationWizard({
   role,
   companyId,
+  companyName,
   onSendMessage,
   onComplete,
   onEnableTaskMode,
@@ -138,6 +145,7 @@ export default function RoleActivationWizard({
         <ActivationMessageStep
           roleName={role.name}
           mandate={role.mandate}
+          companyName={companyName}
           onSend={handleSendActivationMessage}
           onSkip={handleSkipActivation}
           isLoading={isLoading}
