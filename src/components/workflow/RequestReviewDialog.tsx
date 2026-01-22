@@ -22,8 +22,10 @@ import {
   MessageSquare,
   Check,
   X,
-  ExternalLink
+  ExternalLink,
+  Copy
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { WorkflowRequest } from '@/hooks/useWorkflowRequests';
 
@@ -73,12 +75,48 @@ const parseTaskContent = (content: string) => {
         title: string;
         description: string;
         completion_criteria: string;
+        affected_files?: string[];
+        affected_tables?: string[];
+        implementation_notes?: string;
       };
     }
   } catch {
     // Not JSON, return null
   }
   return null;
+};
+
+// Format task as implementation prompt for copying
+const formatAsImplementationPrompt = (request: WorkflowRequest): string | null => {
+  if (request.request_type !== 'start_task' && request.request_type !== 'suggest_next_task') {
+    return null;
+  }
+  
+  const taskContent = parseTaskContent(request.proposed_content);
+  const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Unknown';
+  
+  if (!taskContent) {
+    return `Implement the following task:\n\n${request.summary}\n\n---\n\n${request.proposed_content}`;
+  }
+  
+  let prompt = `## Implementation Request from ${roleName}\n\n`;
+  prompt += `### Task: ${taskContent.title || request.summary}\n\n`;
+  prompt += `### Description\n${taskContent.description || 'No description provided'}\n\n`;
+  prompt += `### Acceptance Criteria\n${taskContent.completion_criteria || 'No criteria specified'}\n\n`;
+  
+  if (taskContent.affected_files?.length) {
+    prompt += `### Files to Modify\n${taskContent.affected_files.join(', ')}\n\n`;
+  }
+  if (taskContent.affected_tables?.length) {
+    prompt += `### Database Tables\n${taskContent.affected_tables.join(', ')}\n\n`;
+  }
+  if (taskContent.implementation_notes) {
+    prompt += `### Implementation Notes\n${taskContent.implementation_notes}\n\n`;
+  }
+  
+  prompt += `---\nPlease implement this task and verify the acceptance criteria are met.`;
+  
+  return prompt;
 };
 
 export default function RequestReviewDialog({
@@ -330,9 +368,28 @@ export default function RequestReviewDialog({
               </Button>
             </>
           ) : (
-            <Button variant="outline" onClick={() => handleOpenChange(false)}>
-              Close
-            </Button>
+            <div className="flex w-full justify-between">
+              {request.status === 'approved' && isTaskType && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    const prompt = formatAsImplementationPrompt(request);
+                    if (prompt) {
+                      await navigator.clipboard.writeText(prompt);
+                      toast.success('Copied to clipboard', {
+                        description: 'Paste this into your development platform'
+                      });
+                    }
+                  }}
+                >
+                  <Copy className="mr-1 h-4 w-4" />
+                  Copy
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => handleOpenChange(false)} className="ml-auto">
+                Close
+              </Button>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>

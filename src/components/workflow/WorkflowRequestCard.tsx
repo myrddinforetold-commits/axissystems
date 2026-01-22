@@ -11,10 +11,55 @@ import {
   Check,
   X,
   Eye,
-  Clock
+  Clock,
+  Copy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import type { WorkflowRequest } from '@/hooks/useWorkflowRequests';
+
+// Format task as implementation prompt for copying
+const formatAsImplementationPrompt = (request: WorkflowRequest): string | null => {
+  if (request.request_type !== 'start_task' && request.request_type !== 'suggest_next_task') {
+    return null;
+  }
+  
+  let taskDetails: { 
+    title?: string; 
+    description?: string; 
+    completion_criteria?: string;
+    affected_files?: string[];
+    affected_tables?: string[];
+    implementation_notes?: string;
+  };
+  
+  try {
+    taskDetails = JSON.parse(request.proposed_content);
+  } catch {
+    return `Implement the following task:\n\n${request.summary}\n\n---\n\n${request.proposed_content}`;
+  }
+  
+  const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Unknown';
+  
+  let prompt = `## Implementation Request from ${roleName}\n\n`;
+  prompt += `### Task: ${taskDetails.title || request.summary}\n\n`;
+  prompt += `### Description\n${taskDetails.description || 'No description provided'}\n\n`;
+  prompt += `### Acceptance Criteria\n${taskDetails.completion_criteria || 'No criteria specified'}\n\n`;
+  
+  if (taskDetails.affected_files?.length) {
+    prompt += `### Files to Modify\n${taskDetails.affected_files.join(', ')}\n\n`;
+  }
+  if (taskDetails.affected_tables?.length) {
+    prompt += `### Database Tables\n${taskDetails.affected_tables.join(', ')}\n\n`;
+  }
+  if (taskDetails.implementation_notes) {
+    prompt += `### Implementation Notes\n${taskDetails.implementation_notes}\n\n`;
+  }
+  
+  prompt += `---\nPlease implement this task and verify the acceptance criteria are met.`;
+  
+  return prompt;
+};
 
 interface WorkflowRequestCardProps {
   request: WorkflowRequest;
@@ -80,6 +125,18 @@ export default function WorkflowRequestCard({
   const toRoleName = request.target_role?.display_name || request.target_role?.name;
 
   const isPending = request.status === 'pending';
+  const isApprovedTask = request.status === 'approved' && 
+    (request.request_type === 'start_task' || request.request_type === 'suggest_next_task');
+
+  const handleCopyToClipboard = async () => {
+    const prompt = formatAsImplementationPrompt(request);
+    if (prompt) {
+      await navigator.clipboard.writeText(prompt);
+      toast.success('Copied to clipboard', {
+        description: 'Paste this into your development platform'
+      });
+    }
+  };
 
   return (
     <Card className={cn(
@@ -143,6 +200,18 @@ export default function WorkflowRequestCard({
               <Eye className="mr-1 h-3 w-3" />
               View
             </Button>
+            
+            {isApprovedTask && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyToClipboard}
+                className="w-full justify-start"
+              >
+                <Copy className="mr-1 h-3 w-3" />
+                Copy
+            </Button>
+            )}
             
             {isPending && (
               <>
