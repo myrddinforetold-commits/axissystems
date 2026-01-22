@@ -9,7 +9,7 @@ export interface Task {
   title: string;
   description: string;
   completion_criteria: string;
-  status: "pending" | "running" | "completed" | "blocked" | "stopped";
+  status: "pending" | "running" | "completed" | "blocked" | "stopped" | "archived";
   max_attempts: number;
   current_attempt: number;
   completion_summary: string | null;
@@ -17,6 +17,9 @@ export interface Task {
   updated_at: string;
   depends_on: string[];
   dependency_status: "ready" | "waiting_on_dependencies" | "dependencies_met";
+  requires_verification?: boolean;
+  verified_at?: string | null;
+  verified_by?: string | null;
 }
 
 export interface TaskAttempt {
@@ -185,6 +188,52 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
     }
   }, [activeTask]);
 
+  const archiveTask = useCallback(async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: "archived" })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, status: "archived" as const } : t
+      ));
+    } catch (err) {
+      console.error("Failed to archive task:", err);
+      onErrorRef.current?.("Failed to archive task");
+    }
+  }, []);
+
+  const verifyTask = useCallback(async (taskId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      onErrorRef.current?.("Not authenticated");
+      return;
+    }
+
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("tasks")
+        .update({ 
+          verified_at: now,
+          verified_by: user.id
+        })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, verified_at: now, verified_by: user.id } : t
+      ));
+    } catch (err) {
+      console.error("Failed to verify task:", err);
+      onErrorRef.current?.("Failed to verify task");
+    }
+  }, []);
+
   const executeAttempt = useCallback(async (taskId: string): Promise<boolean> => {
     if (executingRef.current) return false;
     
@@ -290,6 +339,8 @@ export function useTaskExecution({ roleId, companyId, onError }: UseTaskExecutio
     loadAttempts,
     assignTask,
     stopTask,
+    archiveTask,
+    verifyTask,
     startTaskExecution,
   };
 }

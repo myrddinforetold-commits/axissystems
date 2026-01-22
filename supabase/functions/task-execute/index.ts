@@ -520,6 +520,17 @@ Evaluate whether this output meets the completion criteria.`
     // Update task based on evaluation
     let newStatus = task.status;
     let completionSummary = null;
+    
+    // Detect if task claims to implement something (potential hallucination)
+    const implementationKeywords = [
+      'implement', 'create table', 'deploy', 'execute migration',
+      'send email', 'access crm', 'integrate with', 'build feature',
+      'run script', 'install', 'configure server'
+    ];
+    const requiresVerification = implementationKeywords.some(keyword => 
+      task.title.toLowerCase().includes(keyword) || 
+      task.description.toLowerCase().includes(keyword)
+    );
 
     if (evaluationResult === "pass") {
       newStatus = "completed";
@@ -700,7 +711,8 @@ Do you have any follow-up suggestions?`
       .update({ 
         status: newStatus, 
         current_attempt: attemptNumber,
-        completion_summary: completionSummary
+        completion_summary: completionSummary,
+        requires_verification: requiresVerification
       })
       .eq("id", task_id);
 

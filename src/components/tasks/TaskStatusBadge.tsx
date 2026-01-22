@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, XCircle, AlertCircle, StopCircle, Clock } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, AlertCircle, StopCircle, Clock, Archive } from "lucide-react";
 import type { Task } from "@/hooks/useTaskExecution";
 
 interface TaskStatusBadgeProps {
@@ -39,6 +39,12 @@ const statusConfig = {
     variant: "default" as const,
     icon: StopCircle,
     className: "bg-destructive/10 text-destructive border-destructive/20",
+  },
+  archived: {
+    label: "Archived",
+    variant: "secondary" as const,
+    icon: Archive,
+    className: "bg-muted/50 text-muted-foreground opacity-60",
   },
 };
 
