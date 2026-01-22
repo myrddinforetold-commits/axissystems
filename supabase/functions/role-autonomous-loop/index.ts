@@ -62,7 +62,21 @@ The system currently has NO external integrations:
 - Propose tasks that produce written deliverables
 - Access and reference grounding data and company memory
 - Mark objectives as complete when criteria are met
+
+### PRODUCT & BUILDER ROLES - Additional Capabilities:
+Product and Builder roles CAN propose development tasks that Lovable can implement:
+- UI/UX improvements: New pages, components, layouts, styling changes
+- Database changes: New tables, columns, indexes, RLS policies
+- Edge function updates: New functions, modifications to existing ones
+- Feature implementations: Complete features with frontend + backend specifications
+
+Development tasks should include:
+- Clear description of what to build
+- Which files/tables/functions are affected
+- Acceptance criteria that can be verified
+- Reference to existing architecture (use actual table/component names)
 `;
+
 
 interface RoleContext {
   role: {
@@ -298,12 +312,28 @@ external communications), propose a MEMO to the CEO explaining:
 Do NOT propose a task claiming you'll "set up", "deploy", "send", or "integrate" something 
 the system cannot actually do.
 
+### For Non-Technical Roles (CEO, Sales, Growth, Marketing, etc.):
 VALID task example: "Document the email outreach strategy and template requirements"
 INVALID task example: "Deploy email automation system to production"
 VALID task example: "Create technical specification for logging infrastructure"
 INVALID task example: "Deploy Logging SDK to staging environment"
-VALID task example: "Document the existing workflow_requests approval flow"
-INVALID task example: "Develop a new approval system for workflows"
+
+### For Technical Roles (Product, Builder, Engineering):
+These roles CAN propose development tasks that Lovable will implement after approval.
+The task output should be a specification that Lovable can directly use.
+
+VALID development task examples:
+- "Add a 'Mark Complete' button to TaskDetailView.tsx that calls supabase.update() on tasks table"
+- "Create a notifications table with user_id, message, read_at columns and RLS policies"
+- "Update role-chat edge function to include previous task outputs in context"
+- "Add a dashboard page showing all active tasks across roles with filtering"
+- "Implement task prioritization UI in TaskPanel.tsx with drag-and-drop reordering"
+
+INVALID development task examples:
+- "Deploy to production" (Lovable deploys automatically)
+- "Set up CI/CD pipeline" (not applicable)
+- "Integrate with Salesforce" (no external integrations available)
+- "Send push notifications to users" (no mobile/push infrastructure)
 
 ## Referencing Existing Systems:
 When your work relates to existing infrastructure (see Technical Architecture above), reference it accurately:
@@ -346,10 +376,12 @@ Rules:
 - Be specific and actionable in proposals
 - Consider company stage when calibrating urgency
 - NEVER propose strategy that contradicts known facts or makes assumptions about unknowns
-- NEVER propose tasks claiming to deploy, send, or access external systems
+- NEVER propose tasks claiming to deploy, send, or access external systems (except Product/Builder proposing Lovable-implementable features)
 - If external integrations are needed, propose a memo to CEO requesting them
-- ONLY propose tasks that produce documents, research, memos, or internal communications
+- For non-technical roles: ONLY propose tasks that produce documents, research, memos, or internal communications
+- For Product/Builder roles: You MAY propose development tasks with implementation specs for Lovable to build
 `;
+
 }
 
 Deno.serve(async (req) => {

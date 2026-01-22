@@ -63,7 +63,32 @@ The system currently has NO external integrations:
 - Propose tasks that produce written deliverables
 - Access and reference grounding data and company memory
 - Mark objectives as complete when criteria are met
+
+### PRODUCT & BUILDER ROLES - Development Task Outputs:
+When executing development tasks, Product and Builder roles should output:
+- Implementation specifications that Lovable can directly use
+- File names, component names, and table names to modify
+- Acceptance criteria that can be verified after implementation
+- Step-by-step implementation guidance referencing actual code patterns
+
+Example output format for development tasks:
+\`\`\`
+## Feature: [Feature Name]
+### Files to Modify:
+- src/components/tasks/TaskDetailView.tsx
+### Database Changes:
+- ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 1
+### Implementation Steps:
+1. Add Button component with onClick handler
+2. Call supabase.from('tasks').update() with new status
+3. Show toast notification on success
+### Acceptance Criteria:
+- Button appears on task detail page
+- Clicking updates task status in database
+- Toast confirms success
+\`\`\`
 `;
+
 
 interface Task {
   id: string;
