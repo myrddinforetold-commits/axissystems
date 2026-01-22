@@ -70,6 +70,14 @@ const App = () => (
               }
             />
             <Route
+              path="/company/:companyId/role/:roleId"
+              element={
+                <ProtectedRoute>
+                  <RoleChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/companies/:id/roles/:roleId/dashboard"
               element={
                 <ProtectedRoute>

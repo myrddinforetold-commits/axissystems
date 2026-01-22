@@ -387,6 +387,143 @@ Evaluate whether this output meets the completion criteria.`
         const summaryData = await summaryResponse.json();
         completionSummary = summaryData.choices?.[0]?.message?.content || "Task completed successfully.";
       }
+
+      // Ask AI if there are follow-up suggestions (memos or next tasks)
+      try {
+        const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${lovableApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { 
+                role: "system", 
+                content: `You are an AI role that just completed a task. Analyze if follow-up actions are needed.
+
+Consider:
+1. Should another role be notified about this work? (memo)
+2. Is there a logical next task that should be done? (next_task)
+
+IMPORTANT: Only suggest follow-ups if truly necessary. Most tasks don't need follow-ups.
+If you do suggest a memo, specify which type of role would be the recipient (e.g., "CFO", "Marketing Lead", etc).
+
+Respond with JSON only, no explanation.` 
+              },
+              { 
+                role: "user", 
+                content: `Task Completed: ${task.title}
+                
+Description: ${task.description}
+
+Output delivered:
+${modelOutput}
+
+Do you have any follow-up suggestions?` 
+              }
+            ],
+            tools: [{
+              type: "function",
+              function: {
+                name: "suggest_followups",
+                description: "Suggest optional follow-up actions after task completion",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    has_suggestions: {
+                      type: "boolean",
+                      description: "Whether there are any follow-up suggestions"
+                    },
+                    memo: {
+                      type: "object",
+                      properties: {
+                        target_role_type: { type: "string", description: "Type of role to notify (e.g., 'CFO', 'CTO', 'Marketing Lead')" },
+                        summary: { type: "string", description: "Brief summary of why this memo is needed" },
+                        content: { type: "string", description: "The memo content" }
+                      }
+                    },
+                    next_task: {
+                      type: "object",
+                      properties: {
+                        title: { type: "string" },
+                        description: { type: "string" },
+                        completion_criteria: { type: "string" },
+                        summary: { type: "string", description: "Brief explanation of why this task is suggested" }
+                      }
+                    }
+                  },
+                  required: ["has_suggestions"]
+                }
+              }
+            }],
+            tool_choice: { type: "function", function: { name: "suggest_followups" } }
+          }),
+        });
+
+        if (followUpResponse.ok) {
+          const followUpData = await followUpResponse.json();
+          const toolCall = followUpData.choices?.[0]?.message?.tool_calls?.[0];
+          
+          if (toolCall?.function?.arguments) {
+            const suggestions = JSON.parse(toolCall.function.arguments);
+            
+            if (suggestions.has_suggestions) {
+              // Create workflow request for memo if suggested
+              if (suggestions.memo?.target_role_type && suggestions.memo?.content) {
+                // Try to find a matching role in the company
+                const { data: targetRoles } = await supabaseService
+                  .from("roles")
+                  .select("id, name")
+                  .eq("company_id", task.company_id)
+                  .neq("id", task.role_id);
+                
+                // Find best matching role by name
+                const targetRole = targetRoles?.find(r => 
+                  r.name.toLowerCase().includes(suggestions.memo.target_role_type.toLowerCase()) ||
+                  suggestions.memo.target_role_type.toLowerCase().includes(r.name.toLowerCase())
+                );
+
+                if (targetRole) {
+                  await supabaseService
+                    .from("workflow_requests")
+                    .insert({
+                      company_id: task.company_id,
+                      requesting_role_id: task.role_id,
+                      target_role_id: targetRole.id,
+                      request_type: "send_memo",
+                      summary: suggestions.memo.summary || `Notification about: ${task.title}`,
+                      proposed_content: suggestions.memo.content,
+                      source_task_id: task_id,
+                    });
+                }
+              }
+
+              // Create workflow request for next task if suggested
+              if (suggestions.next_task?.title && suggestions.next_task?.description) {
+                await supabaseService
+                  .from("workflow_requests")
+                  .insert({
+                    company_id: task.company_id,
+                    requesting_role_id: task.role_id,
+                    request_type: "suggest_next_task",
+                    summary: suggestions.next_task.summary || `Follow-up: ${suggestions.next_task.title}`,
+                    proposed_content: JSON.stringify({
+                      title: suggestions.next_task.title,
+                      description: suggestions.next_task.description,
+                      completion_criteria: suggestions.next_task.completion_criteria || "Task completed successfully."
+                    }),
+                    source_task_id: task_id,
+                  });
+              }
+            }
+          }
+        }
+      } catch (followUpError) {
+        console.error("Follow-up suggestion error:", followUpError);
+        // Don't fail the main task for follow-up errors
+      }
     } else if (evaluationResult === "unclear") {
       newStatus = "blocked";
     } else if (attemptNumber >= task.max_attempts) {

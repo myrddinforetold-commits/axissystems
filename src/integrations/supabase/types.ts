@@ -339,6 +339,65 @@ export type Database = {
           },
         ]
       }
+      role_memos: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          from_role_id: string
+          id: string
+          to_role_id: string
+          workflow_request_id: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          from_role_id: string
+          id?: string
+          to_role_id: string
+          workflow_request_id: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          from_role_id?: string
+          id?: string
+          to_role_id?: string
+          workflow_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_memos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_memos_from_role_id_fkey"
+            columns: ["from_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_memos_to_role_id_fkey"
+            columns: ["to_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_memos_workflow_request_id_fkey"
+            columns: ["workflow_request_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_messages: {
         Row: {
           company_id: string
@@ -395,6 +454,7 @@ export type Database = {
           system_prompt: string
           task_mode_enabled: boolean
           updated_at: string
+          workflow_status: string
         }
         Insert: {
           authority_level?: Database["public"]["Enums"]["authority_level"]
@@ -409,6 +469,7 @@ export type Database = {
           system_prompt: string
           task_mode_enabled?: boolean
           updated_at?: string
+          workflow_status?: string
         }
         Update: {
           authority_level?: Database["public"]["Enums"]["authority_level"]
@@ -423,6 +484,7 @@ export type Database = {
           system_prompt?: string
           task_mode_enabled?: boolean
           updated_at?: string
+          workflow_status?: string
         }
         Relationships: [
           {
@@ -556,6 +618,83 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          proposed_content: string
+          request_type: Database["public"]["Enums"]["workflow_request_type"]
+          requesting_role_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_task_id: string | null
+          status: Database["public"]["Enums"]["workflow_request_status"]
+          summary: string
+          target_role_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          proposed_content: string
+          request_type: Database["public"]["Enums"]["workflow_request_type"]
+          requesting_role_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_task_id?: string | null
+          status?: Database["public"]["Enums"]["workflow_request_status"]
+          summary: string
+          target_role_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          proposed_content?: string
+          request_type?: Database["public"]["Enums"]["workflow_request_type"]
+          requesting_role_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_task_id?: string | null
+          status?: Database["public"]["Enums"]["workflow_request_status"]
+          summary?: string
+          target_role_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_requests_requesting_role_id_fkey"
+            columns: ["requesting_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_requests_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_requests_target_role_id_fkey"
+            columns: ["target_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -607,6 +746,12 @@ export type Database = {
       memory_scope: "role" | "company"
       message_sender: "user" | "ai"
       task_status: "pending" | "running" | "completed" | "blocked" | "stopped"
+      workflow_request_status: "pending" | "approved" | "denied"
+      workflow_request_type:
+        | "send_memo"
+        | "start_task"
+        | "continue_task"
+        | "suggest_next_task"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -747,6 +892,13 @@ export const Constants = {
       memory_scope: ["role", "company"],
       message_sender: ["user", "ai"],
       task_status: ["pending", "running", "completed", "blocked", "stopped"],
+      workflow_request_status: ["pending", "approved", "denied"],
+      workflow_request_type: [
+        "send_memo",
+        "start_task",
+        "continue_task",
+        "suggest_next_task",
+      ],
     },
   },
 } as const

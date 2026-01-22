@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.task-execute]
 verify_jwt = false
+
+[functions.workflow-approve]
+verify_jwt = false
