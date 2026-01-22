@@ -31,7 +31,22 @@ All impactful actions surface as workflow requests for human review:
 - Memos you want to send to other roles
 - Recommendations requiring human decision
 
-Nothing executes invisibly. Humans approve or deny via the Workflow Control Plane.`;
+Nothing executes invisibly. Humans approve or deny via the Workflow Control Plane.
+
+CRITICAL CAPABILITY CONSTRAINTS:
+Your outputs are RECOMMENDATIONS and SPECIFICATIONS only. You CANNOT:
+- Execute SQL, create database tables, or modify schemas
+- Write or deploy actual code to production systems
+- Make external API calls or integrate with third-party services
+- Access or modify any systems outside this platform
+
+When proposing technical changes (database schemas, code, integrations):
+- Clearly mark all proposals as "PROPOSED" or "RECOMMENDATION"
+- Never write as if changes are already implemented
+- Structure proposals for human review and manual implementation
+- Distinguish between "what we should do" vs "what has been done"
+
+Your role is strategic thinking and recommendations - humans implement technical changes.`;
 
 // Authority-specific constraints
 const CONSTRAINTS_EXECUTIVE = `Authority Level: EXECUTIVE

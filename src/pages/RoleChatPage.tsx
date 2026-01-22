@@ -446,6 +446,8 @@ export default function RoleChatPage() {
         onOpenChange={setShowAssignDialog}
         onAssign={handleAssignTask}
         roleName={role.name}
+        roleId={roleId!}
+        companyId={role.company_id}
       />
 
       {/* Role Activation Wizard */}

@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, ChevronRight, Loader2 } from "lucide-react";
 import TaskStatusBadge from "./TaskStatusBadge";
 import TaskDetailView from "./TaskDetailView";
+import DependencyStatusBadge from "./DependencyStatusBadge";
 import type { Task, TaskAttempt } from "@/hooks/useTaskExecution";
 
 interface TaskPanelProps {
@@ -103,6 +104,7 @@ export default function TaskPanel({
                 attempts={selectedTaskId === activeTask?.id || selectedTaskId === null ? attempts : []}
                 isExecuting={isExecuting}
                 onStop={() => onStopTask(selectedTask.id)}
+                allTasks={tasks}
               />
             </>
           ) : (
@@ -118,14 +120,20 @@ export default function TaskPanel({
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{activeTask.title}</p>
-                            <TaskStatusBadge
-                              status={activeTask.status}
-                              currentAttempt={activeTask.current_attempt}
-                              maxAttempts={activeTask.max_attempts}
-                              size="sm"
-                            />
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <TaskStatusBadge
+                                status={activeTask.status}
+                                currentAttempt={activeTask.current_attempt}
+                                maxAttempts={activeTask.max_attempts}
+                                size="sm"
+                              />
+                              <DependencyStatusBadge
+                                status={activeTask.dependency_status}
+                                dependencyCount={activeTask.depends_on?.length || 0}
+                              />
+                            </div>
                           </div>
                           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                         </div>
@@ -151,8 +159,12 @@ export default function TaskPanel({
                               <div className="flex items-center justify-between">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium truncate">{task.title}</p>
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <TaskStatusBadge status={task.status} size="sm" />
+                                    <DependencyStatusBadge
+                                      status={task.dependency_status}
+                                      dependencyCount={task.depends_on?.length || 0}
+                                    />
                                     <span className="text-xs text-muted-foreground">
                                       {task.current_attempt}/{task.max_attempts} attempts
                                     </span>
