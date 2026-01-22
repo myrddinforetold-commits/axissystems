@@ -367,6 +367,51 @@ ${contentToUse}`;
           }
           break;
         }
+
+        case "review_output": {
+          // Human has reviewed the task output and approves continuing autonomous work
+          // Parse the content to check for any follow-up suggestions
+          try {
+            const outputData = JSON.parse(contentToUse);
+            
+            // Log approval to chat
+            const approvalMessage = `✅ **Output Reviewed & Approved**
+
+**Task:** ${outputData.task_title || 'Task'}
+
+Human has reviewed the output and approved. Autonomous work may continue.`;
+
+            await supabaseService.from("role_messages").insert({
+              role_id: request.requesting_role_id,
+              company_id: request.company_id,
+              sender: "ai",
+              content: approvalMessage,
+            });
+
+            // Trigger the autonomous loop for this role to continue work
+            const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+            if (SUPABASE_URL) {
+              const continueLoop = async () => {
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/role-autonomous-loop`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${supabaseServiceKey}`,
+                    },
+                    body: JSON.stringify({ role_id: request.requesting_role_id }),
+                  });
+                } catch (err) {
+                  console.error("Failed to trigger autonomous loop:", err);
+                }
+              };
+              (globalThis as any).EdgeRuntime?.waitUntil?.(continueLoop()) ?? continueLoop();
+            }
+          } catch (parseErr) {
+            console.error("Failed to parse review_output content:", parseErr);
+          }
+          break;
+        }
       }
     }
 

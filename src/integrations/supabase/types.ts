@@ -874,6 +874,7 @@ export type Database = {
         | "start_task"
         | "continue_task"
         | "suggest_next_task"
+        | "review_output"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1020,6 +1021,7 @@ export const Constants = {
         "start_task",
         "continue_task",
         "suggest_next_task",
+        "review_output",
       ],
     },
   },
