@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Activity, Clock, CheckCircle2, XCircle, Play, Check, X } from 'lucide-react';
 import { useWorkflowRequests, type WorkflowRequest } from '@/hooks/useWorkflowRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +20,7 @@ interface WorkflowTabProps {
 export default function WorkflowTab({ companyId }: WorkflowTabProps) {
   const { user } = useAuth();
   const [selectedRequest, setSelectedRequest] = useState<WorkflowRequest | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isKickingOff, setIsKickingOff] = useState(false);
   
   const {
@@ -27,8 +28,11 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
     rolesWithStatus,
     pendingCount,
     isLoading,
+    processingIds,
     approveRequest,
     denyRequest,
+    approveMultiple,
+    denyMultiple,
   } = useWorkflowRequests({
     companyId,
     onError: (error) => toast.error(error),
@@ -37,10 +41,29 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const resolvedRequests = requests.filter(r => r.status !== 'pending');
 
-  // Find idle activated roles that could be kicked off
   const idleActivatedRoles = rolesWithStatus.filter(
     (role) => (role as any).is_activated && role.workflow_status === 'idle'
   );
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === pendingRequests.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendingRequests.map(r => r.id)));
+    }
+  };
 
   const handleKickoffIdleRoles = async () => {
     if (idleActivatedRoles.length === 0) {
@@ -76,53 +99,77 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
 
   const handleApprove = async (editedContent?: string, notes?: string) => {
     if (!selectedRequest || !user) return;
-    setIsProcessing(true);
     try {
       await approveRequest(selectedRequest.id, user.id, editedContent, notes);
       toast.success('Request approved');
+      setSelectedRequest(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to approve request');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const handleDeny = async (notes?: string) => {
     if (!selectedRequest || !user) return;
-    setIsProcessing(true);
     try {
       await denyRequest(selectedRequest.id, user.id, notes);
       toast.success('Request denied');
+      setSelectedRequest(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to deny request');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const handleQuickApprove = async (request: WorkflowRequest) => {
     if (!user) return;
-    setIsProcessing(true);
     try {
       await approveRequest(request.id, user.id);
       toast.success('Request approved');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to approve request');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const handleQuickDeny = async (request: WorkflowRequest) => {
     if (!user) return;
-    setIsProcessing(true);
     try {
       await denyRequest(request.id, user.id);
       toast.success('Request denied');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to deny request');
-    } finally {
-      setIsProcessing(false);
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (!user || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setSelectedIds(new Set());
+    try {
+      const { successCount, failureCount } = await approveMultiple(ids, user.id);
+      if (successCount > 0) {
+        toast.success(`Approved ${successCount} request${successCount > 1 ? 's' : ''}`);
+      }
+      if (failureCount > 0) {
+        toast.error(`Failed to approve ${failureCount} request${failureCount > 1 ? 's' : ''}`);
+      }
+    } catch (error) {
+      toast.error('Failed to approve requests');
+    }
+  };
+
+  const handleBatchDeny = async () => {
+    if (!user || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setSelectedIds(new Set());
+    try {
+      const { successCount, failureCount } = await denyMultiple(ids, user.id);
+      if (successCount > 0) {
+        toast.success(`Denied ${successCount} request${successCount > 1 ? 's' : ''}`);
+      }
+      if (failureCount > 0) {
+        toast.error(`Failed to deny ${failureCount} request${failureCount > 1 ? 's' : ''}`);
+      }
+    } catch (error) {
+      toast.error('Failed to deny requests');
     }
   };
 
@@ -218,16 +265,57 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
                   </p>
                 </div>
               ) : (
-                pendingRequests.map((request) => (
-                  <WorkflowRequestCard
-                    key={request.id}
-                    request={request}
-                    onApprove={() => handleQuickApprove(request)}
-                    onDeny={() => handleQuickDeny(request)}
-                    onView={() => setSelectedRequest(request)}
-                    isProcessing={isProcessing}
-                  />
-                ))
+                <>
+                  {/* Batch actions bar */}
+                  <div className="flex items-center justify-between py-2 px-1 border-b mb-3">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedIds.size === pendingRequests.length && pendingRequests.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {selectedIds.size > 0 
+                          ? `${selectedIds.size} selected` 
+                          : 'Select all'}
+                      </span>
+                    </div>
+                    {selectedIds.size > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleBatchApprove}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Approve ({selectedIds.size})
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleBatchDeny}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Deny ({selectedIds.size})
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {pendingRequests.map((request) => (
+                    <WorkflowRequestCard
+                      key={request.id}
+                      request={request}
+                      onApprove={() => handleQuickApprove(request)}
+                      onDeny={() => handleQuickDeny(request)}
+                      onView={() => setSelectedRequest(request)}
+                      isProcessing={processingIds.has(request.id)}
+                      isSelected={selectedIds.has(request.id)}
+                      onToggleSelect={() => toggleSelection(request.id)}
+                    />
+                  ))}
+                </>
               )}
             </TabsContent>
 
@@ -263,7 +351,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
         onOpenChange={(open) => !open && setSelectedRequest(null)}
         onApprove={handleApprove}
         onDeny={handleDeny}
-        isProcessing={isProcessing}
+        isProcessing={selectedRequest ? processingIds.has(selectedRequest.id) : false}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Mail, 
   Play, 
@@ -67,6 +68,8 @@ interface WorkflowRequestCardProps {
   onDeny: () => void;
   onView: () => void;
   isProcessing?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 const typeConfig = {
@@ -113,6 +116,8 @@ export default function WorkflowRequestCard({
   onDeny,
   onView,
   isProcessing,
+  isSelected,
+  onToggleSelect,
 }: WorkflowRequestCardProps) {
   const type = request.request_type as keyof typeof typeConfig;
   const typeInfo = typeConfig[type] || typeConfig.send_memo;
@@ -141,10 +146,22 @@ export default function WorkflowRequestCard({
   return (
     <Card className={cn(
       'transition-all',
-      isPending && 'border-amber-200 bg-amber-50/30 dark:bg-amber-950/10'
+      isPending && 'border-amber-200 bg-amber-50/30 dark:bg-amber-950/10',
+      isProcessing && 'opacity-60 pointer-events-none'
     )}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
+          {/* Checkbox for selection */}
+          {isPending && onToggleSelect && (
+            <div className="pt-1">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onToggleSelect}
+                aria-label="Select request"
+              />
+            </div>
+          )}
+
           <div className="flex-1 min-w-0">
             {/* Header with type badge and status */}
             <div className="flex items-center gap-2 flex-wrap mb-2">
