@@ -440,6 +440,60 @@ export type Database = {
           },
         ]
       }
+      role_objectives: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          priority: number
+          role_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          priority?: number
+          role_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          priority?: number
+          role_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_objectives_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_objectives_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           authority_level: Database["public"]["Enums"]["authority_level"]
@@ -452,7 +506,6 @@ export type Database = {
           memory_scope: Database["public"]["Enums"]["memory_scope"]
           name: string
           system_prompt: string
-          task_mode_enabled: boolean
           updated_at: string
           workflow_status: string
         }
@@ -467,7 +520,6 @@ export type Database = {
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
           name: string
           system_prompt: string
-          task_mode_enabled?: boolean
           updated_at?: string
           workflow_status?: string
         }
@@ -482,7 +534,6 @@ export type Database = {
           memory_scope?: Database["public"]["Enums"]["memory_scope"]
           name?: string
           system_prompt?: string
-          task_mode_enabled?: boolean
           updated_at?: string
           workflow_status?: string
         }
