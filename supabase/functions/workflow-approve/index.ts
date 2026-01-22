@@ -129,6 +129,51 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Log approval/denial to requesting role's chat as audit trail
+    const statusEmoji = action === "approve" ? "✅" : "❌";
+    const statusText = action === "approve" ? "Approved" : "Denied";
+    
+    let auditContent = `${statusEmoji} **Workflow Request ${statusText}**\n\n`;
+    
+    if (request.request_type === "start_task" || request.request_type === "suggest_next_task") {
+      let taskDetails;
+      try {
+        taskDetails = JSON.parse(request.proposed_content);
+      } catch {
+        taskDetails = { title: request.summary };
+      }
+      
+      auditContent += `**Task:** ${taskDetails.title || request.summary}\n`;
+      if (action === "approve") {
+        auditContent += `\n🚀 *Task is now executing...*`;
+      } else {
+        auditContent += `\n📝 **Review Notes:** ${review_notes || "None provided"}`;
+      }
+    } else if (request.request_type === "send_memo") {
+      const targetName = request.target_role?.display_name || request.target_role?.name || "Unknown";
+      auditContent += `**Memo to ${targetName}**\n`;
+      if (action === "approve") {
+        auditContent += `\n📨 *Memo has been delivered.*`;
+      } else {
+        auditContent += `\n📝 **Review Notes:** ${review_notes || "None provided"}`;
+      }
+    } else if (request.request_type === "continue_task") {
+      auditContent += `**Continue Task**\n`;
+      if (action === "approve") {
+        auditContent += `\n🔄 *Task execution resumed.*`;
+      } else {
+        auditContent += `\n📝 **Review Notes:** ${review_notes || "None provided"}`;
+      }
+    }
+
+    // Insert audit message to requesting role's chat
+    await supabaseService.from("role_messages").insert({
+      role_id: request.requesting_role_id,
+      company_id: request.company_id,
+      sender: "ai",
+      content: auditContent,
+    });
+
     // If approved, perform the action based on request type
     if (action === "approve") {
       const contentToUse = edited_content || request.proposed_content;

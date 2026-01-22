@@ -523,7 +523,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Execute the decision
+    // Execute the decision and build audit message
+    let auditMessage = "";
+
     if (decision.action === "propose_task" && decision.details) {
       // Create a workflow request for the task
       const { error: wfError } = await supabase.from("workflow_requests").insert({
@@ -547,11 +549,26 @@ Deno.serve(async (req) => {
           .update({ workflow_status: "awaiting_approval" })
           .eq("id", role_id);
       }
+
+      // Build rich audit message for task proposals
+      auditMessage = `🤖 **Autonomous Action: Task Proposed**
+
+**Reasoning:** ${decision.reasoning}
+
+---
+
+📋 **Proposed Task:**
+- **Title:** ${decision.details.title}
+- **Description:** ${decision.details.description}
+- **Completion Criteria:** ${decision.details.completion_criteria}
+
+⏳ *Awaiting approval in the Workflow panel.*`;
+
     } else if (decision.action === "propose_memo" && decision.details) {
       // Find target role
       const { data: targetRole } = await supabase
         .from("roles")
-        .select("id")
+        .select("id, name, display_name")
         .eq("company_id", context.role.company_id)
         .ilike("name", `%${decision.details.to_role}%`)
         .single();
@@ -574,6 +591,18 @@ Deno.serve(async (req) => {
             .update({ workflow_status: "awaiting_approval" })
             .eq("id", role_id);
         }
+
+        const targetName = targetRole.display_name || targetRole.name;
+        auditMessage = `🤖 **Autonomous Action: Memo Proposed**
+
+**Reasoning:** ${decision.reasoning}
+
+---
+
+📬 **Proposed Memo to ${targetName}:**
+${decision.details.content}
+
+⏳ *Awaiting approval in the Workflow panel.*`;
       }
     } else if (decision.action === "complete_objective" && decision.details?.objective_id) {
       // Mark objective as completed
@@ -581,15 +610,34 @@ Deno.serve(async (req) => {
         .from("role_objectives")
         .update({ status: "completed" })
         .eq("id", decision.details.objective_id);
+
+      auditMessage = `🤖 **Autonomous Action: Objective Completed**
+
+**Reasoning:** ${decision.reasoning}
+
+✅ *Objective marked as complete.*`;
+    } else if (decision.action === "wait") {
+      auditMessage = `🤖 **Autonomous Action: Waiting**
+
+**Reasoning:** ${decision.reasoning}
+
+⏸️ *No action required at this time.*`;
+    } else {
+      // Fallback for any other action
+      auditMessage = `🤖 **Autonomous Action: ${decision.action}**
+
+**Reasoning:** ${decision.reasoning}`;
     }
 
-    // Log the decision as a message
-    await supabase.from("role_messages").insert({
-      role_id: context.role.id,
-      company_id: context.role.company_id,
-      sender: "assistant",
-      content: `[Autonomous Loop] ${decision.reasoning}\n\nAction: ${decision.action}`,
-    });
+    // Log the decision as a message (fixed: use "ai" not "assistant")
+    if (auditMessage) {
+      await supabase.from("role_messages").insert({
+        role_id: context.role.id,
+        company_id: context.role.company_id,
+        sender: "ai",
+        content: auditMessage,
+      });
+    }
 
     return new Response(JSON.stringify(decision), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
