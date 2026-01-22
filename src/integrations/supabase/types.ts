@@ -335,6 +335,70 @@ export type Database = {
           },
         ]
       }
+      dead_letter_queue: {
+        Row: {
+          attempts_made: number
+          company_id: string
+          created_at: string
+          failure_reason: string
+          id: string
+          last_output: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          role_id: string
+          task_id: string
+        }
+        Insert: {
+          attempts_made: number
+          company_id: string
+          created_at?: string
+          failure_reason: string
+          id?: string
+          last_output?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          role_id: string
+          task_id: string
+        }
+        Update: {
+          attempts_made?: number
+          company_id?: string
+          created_at?: string
+          failure_reason?: string
+          id?: string
+          last_output?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          role_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dead_letter_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dead_letter_queue_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dead_letter_queue_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -887,6 +951,7 @@ export type Database = {
         | "blocked"
         | "stopped"
         | "archived"
+        | "system_alert"
       workflow_request_status: "pending" | "approved" | "denied"
       workflow_request_type:
         | "send_memo"
@@ -1040,6 +1105,7 @@ export const Constants = {
         "blocked",
         "stopped",
         "archived",
+        "system_alert",
       ],
       workflow_request_status: ["pending", "approved", "denied"],
       workflow_request_type: [

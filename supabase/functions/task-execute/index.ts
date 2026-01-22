@@ -506,6 +506,31 @@ Evaluate whether this output meets the completion criteria.`
       console.error("Evaluation API error:", await evaluationResponse.text());
     }
 
+    // VALIDATION: Check if output falsely claims implementation/deployment
+    const falseImplementationClaims = [
+      'has been implemented',
+      'has been deployed',
+      'is now live',
+      'schema created',
+      'triggers active',
+      'function deployed',
+      'successfully sent email',
+      'crm updated',
+      'integration complete',
+      'migration executed',
+      'database updated',
+      'webhook configured'
+    ];
+    
+    const claimsImplementation = falseImplementationClaims.some(phrase => 
+      modelOutput.toLowerCase().includes(phrase)
+    );
+    
+    if (claimsImplementation && evaluationResult === "pass") {
+      evaluationResult = "fail";
+      evaluationReason = "VALIDATION FAILED: Output claims implementation/deployment actions that AI roles cannot perform. Roles produce documents and specifications, not deployments. Rephrase output to describe what SHOULD be done, not what WAS done.";
+    }
+
     // Store the attempt using service client
     await supabaseService
       .from("task_attempts")
@@ -702,7 +727,20 @@ Do you have any follow-up suggestions?`
     } else if (evaluationResult === "unclear") {
       newStatus = "blocked";
     } else if (attemptNumber >= task.max_attempts) {
-      newStatus = "blocked";
+      // Move to DLQ (system_alert) when max retries exhausted
+      newStatus = "system_alert";
+      
+      // Insert into dead_letter_queue for manual review
+      await supabaseService
+        .from("dead_letter_queue")
+        .insert({
+          task_id: task_id,
+          role_id: task.role_id,
+          company_id: task.company_id,
+          failure_reason: evaluationReason || "Max attempts reached without passing evaluation",
+          attempts_made: attemptNumber,
+          last_output: modelOutput.substring(0, 10000), // Limit stored output size
+        });
     }
     // If fail and retries remain, status stays "running"
 
@@ -788,6 +826,28 @@ ${evaluationReason || "Task could not be completed after maximum attempts."}
         company_id: task.company_id,
         sender: "ai",
         content: blockedMessage,
+      });
+    } else if (newStatus === "system_alert") {
+      const alertMessage = `🚨 **Task Failed - Sent to Dead Letter Queue**
+
+**Task:** ${task.title}
+
+---
+
+**Failure Reason:**
+${evaluationReason || "Task exhausted all retry attempts without passing evaluation."}
+
+---
+
+📊 *Failed after ${attemptNumber} attempt(s).*
+
+🔧 *This task requires manual intervention. Check the System Alerts tab to resolve.*`;
+
+      await supabaseService.from("role_messages").insert({
+        role_id: task.role_id,
+        company_id: task.company_id,
+        sender: "ai",
+        content: alertMessage,
       });
     }
 
