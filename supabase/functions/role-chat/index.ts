@@ -1,10 +1,161 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+interface ExtractedWorkflowRequest {
+  type: "send_memo" | "start_task";
+  target_role_name: string;
+  summary: string;
+  content: string;
+}
+
+// Extract workflow requests from AI response using AI parsing
+async function extractWorkflowRequests(
+  content: string,
+  apiKey: string
+): Promise<ExtractedWorkflowRequest[]> {
+  try {
+    // Check if the content seems to contain workflow-related content
+    const hasWorkflowIndicators = /workflow\s*request|approval\s*required|memo\s*to|task\s*for/i.test(content);
+    if (!hasWorkflowIndicators) {
+      return [];
+    }
+
+    const parseResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are a parser that extracts workflow requests from AI assistant responses.
+
+Extract any workflow requests the AI is proposing. Look for:
+- Memos to other roles (e.g., "Memo to Product", "Send to Marketing")
+- Tasks for roles to complete
+- Anything marked as "Approval Required: Yes"
+
+Return a JSON array of requests. Each request should have:
+- type: "send_memo" or "start_task"
+- target_role_name: The name of the target role (e.g., "Product", "Marketing", "Engineering")
+- summary: A brief one-line summary of the request
+- content: The full content/body of the memo or task
+
+If no workflow requests are found, return an empty array: []
+
+IMPORTANT: Only extract requests that require approval. Do not extract general suggestions or recommendations.
+Only return valid JSON, no markdown code blocks.`,
+          },
+          {
+            role: "user",
+            content: content,
+          },
+        ],
+        temperature: 0,
+      }),
+    });
+
+    if (!parseResponse.ok) {
+      console.error("Failed to parse workflow requests:", parseResponse.status);
+      return [];
+    }
+
+    const parseResult = await parseResponse.json();
+    const parsedContent = parseResult.choices?.[0]?.message?.content || "[]";
+    
+    // Clean up the response (remove markdown code blocks if present)
+    const cleanedContent = parsedContent
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .trim();
+
+    const requests = JSON.parse(cleanedContent);
+    
+    if (!Array.isArray(requests)) {
+      return [];
+    }
+
+    return requests.filter(
+      (r: unknown): r is ExtractedWorkflowRequest =>
+        typeof r === "object" &&
+        r !== null &&
+        "type" in r &&
+        "target_role_name" in r &&
+        "summary" in r &&
+        "content" in r &&
+        (r.type === "send_memo" || r.type === "start_task")
+    );
+  } catch (error) {
+    console.error("Error extracting workflow requests:", error);
+    return [];
+  }
+}
+
+// Create workflow requests in the database
+async function createWorkflowRequests(
+  supabaseService: SupabaseClient,
+  requests: ExtractedWorkflowRequest[],
+  requestingRoleId: string,
+  companyId: string
+): Promise<void> {
+  if (requests.length === 0) return;
+
+  try {
+    // Fetch all roles for this company to match names
+    const { data: roles } = await supabaseService
+      .from("roles")
+      .select("id, name")
+      .eq("company_id", companyId);
+
+    if (!roles || roles.length === 0) {
+      console.error("No roles found for company");
+      return;
+    }
+
+    const workflowInserts = [];
+
+    for (const request of requests) {
+      // Find target role by name (case-insensitive partial match)
+      const targetRole = roles.find(
+        (r) =>
+          r.name.toLowerCase().includes(request.target_role_name.toLowerCase()) ||
+          request.target_role_name.toLowerCase().includes(r.name.toLowerCase())
+      );
+
+      workflowInserts.push({
+        company_id: companyId,
+        requesting_role_id: requestingRoleId,
+        target_role_id: targetRole?.id || null,
+        request_type: request.type,
+        summary: request.summary,
+        proposed_content: request.content,
+        status: "pending",
+      });
+    }
+
+    if (workflowInserts.length > 0) {
+      const { error } = await supabaseService
+        .from("workflow_requests")
+        .insert(workflowInserts);
+
+      if (error) {
+        console.error("Failed to insert workflow requests:", error);
+      } else {
+        console.log(`Created ${workflowInserts.length} workflow request(s)`);
+      }
+    }
+  } catch (error) {
+    console.error("Error creating workflow requests:", error);
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -33,6 +184,14 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+    if (!LOVABLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "AI service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Create client with user's token for RLS
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
@@ -164,7 +323,17 @@ ${role.mandate}
 - Respond only to user input. Do not take autonomous actions.
 - Maintain a professional, calm, and helpful tone.
 - Stay within the scope of your defined mandate.
-- If asked something outside your expertise, acknowledge it politely.`;
+- If asked something outside your expertise, acknowledge it politely.
+
+## Workflow Requests:
+When you need to propose actions that require human approval (like sending memos to other roles or starting tasks), format them clearly with:
+- "Workflow Request" header
+- "To:" indicating the target role
+- "Type:" indicating "Memo" or "Task"
+- "Approval Required: Yes"
+- The content of the request
+
+This allows the system to capture your proposals for review.`;
 
     // Build messages array for AI
     const aiMessages: Array<{ role: string; content: string }> = [
@@ -194,15 +363,6 @@ ${role.mandate}
 
     if (insertUserError) {
       console.error("Failed to store user message:", insertUserError);
-    }
-
-    // Call Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -274,6 +434,17 @@ ${role.mandate}
               sender: "ai",
               content: fullResponse,
             });
+
+          // Extract and create workflow requests from the AI response
+          const extractedRequests = await extractWorkflowRequests(fullResponse, LOVABLE_API_KEY!);
+          if (extractedRequests.length > 0) {
+            await createWorkflowRequests(
+              supabaseService,
+              extractedRequests,
+              role_id,
+              role.company_id
+            );
+          }
         }
       },
     });
