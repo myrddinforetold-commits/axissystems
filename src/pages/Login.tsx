@@ -76,12 +76,12 @@ export default function Login() {
         )}
       >
         <nav className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex h-20 sm:h-24 lg:h-28 items-center">
+          <div className="flex h-16 items-center">
             <Link to="/" className="flex-shrink-0">
               <img 
                 src={axisLogo} 
                 alt="Axis Systems" 
-                className="h-32 sm:h-40 lg:h-48 w-auto" 
+                className="h-10 w-auto" 
               />
             </Link>
           </div>

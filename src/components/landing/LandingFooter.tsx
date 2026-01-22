@@ -5,7 +5,7 @@ export function LandingFooter() {
     <footer className="py-16 px-6 border-t border-border bg-black">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col items-center text-center">
-          <img src={axisLogo} alt="Axis Systems" className="h-16 mb-6 opacity-80 hover:opacity-100 transition-opacity" />
+          <img src={axisLogo} alt="Axis Systems" className="h-24 mb-6 opacity-80 hover:opacity-100 transition-opacity" />
           <nav className="flex items-center gap-6 text-sm text-white/60 mb-8">
             <span className="hover:text-white cursor-pointer transition-colors duration-200">
               Product

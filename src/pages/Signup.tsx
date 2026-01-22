@@ -71,7 +71,7 @@ export default function Signup() {
       >
         <div className="max-w-6xl mx-auto px-6 py-4">
           <Link to="/">
-            <img src={axisLogo} alt="Axis Systems" className="h-8" />
+            <img src={axisLogo} alt="Axis Systems" className="h-10" />
           </Link>
         </div>
       </header>
