@@ -34,6 +34,7 @@ export default function RoleChatPage() {
   const { toast } = useToast();
 
   const [role, setRole] = useState<Role | null>(null);
+  const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -110,6 +111,17 @@ export default function RoleChatPage() {
         if (!data) throw new Error("Role not found");
 
         setRole(data);
+
+        // Fetch company name
+        const { data: companyData } = await supabase
+          .from("companies")
+          .select("name")
+          .eq("id", companyId)
+          .single();
+        
+        if (companyData?.name) {
+          setCompanyName(companyData.name);
+        }
 
         // Check if user is owner
         const { data: memberData } = await supabase
@@ -259,6 +271,7 @@ export default function RoleChatPage() {
         <RoleActivationWizard
           role={role}
           companyId={companyId}
+          companyName={companyName}
           onSendMessage={sendMessage}
           onComplete={handleWizardComplete}
           onEnableTaskMode={handleEnableTaskMode}

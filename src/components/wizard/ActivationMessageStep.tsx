@@ -7,29 +7,32 @@ import { Bot, Send, Pencil, SkipForward } from "lucide-react";
 interface ActivationMessageStepProps {
   roleName: string;
   mandate: string;
+  companyName?: string;
   onSend: (message: string) => void;
   onSkip: () => void;
   isLoading?: boolean;
 }
 
-function generateOpeningMessage(roleName: string, mandate: string): string {
-  return `Hello. I'm ready to assist you as your ${roleName}.
+function generateOpeningMessage(roleName: string, mandate: string, companyName?: string): string {
+  const roleTitle = companyName ? `${roleName} for ${companyName}` : roleName;
+  return `Welcome. I'm ${roleTitle}.
 
-My mandate is: ${mandate}
+My focus: ${mandate}
 
-I work within defined boundaries and will ask clarifying questions when needed before providing recommendations.
+I'm here to provide perspective within my domain. I may ask clarifying questions before offering recommendations.
 
-How can I help you today?`;
+What's on your mind?`;
 }
 
 export default function ActivationMessageStep({
   roleName,
   mandate,
+  companyName,
   onSend,
   onSkip,
   isLoading,
 }: ActivationMessageStepProps) {
-  const defaultMessage = generateOpeningMessage(roleName, mandate);
+  const defaultMessage = generateOpeningMessage(roleName, mandate, companyName);
   const [message, setMessage] = useState(defaultMessage);
   const [isEditing, setIsEditing] = useState(false);
 
