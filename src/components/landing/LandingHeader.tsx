@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import axisLogo from "@/assets/axis-logo.png";
 import { Menu, ArrowRight } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -78,27 +77,12 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
             to="/" 
             className="group"
           >
-            <div className="relative">
-              <img
-                src={axisLogo}
-                alt="Axis Systems"
-                className={cn(
-                  "h-24 sm:h-32 lg:h-40 w-auto transition-all duration-300 group-hover:scale-105",
-                  !isScrolled && "brightness-0 invert"
-                )}
-              />
-              {/* Logo glow effect on hover */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-                <img
-                  src={axisLogo}
-                  alt=""
-                  className={cn(
-                    "h-24 sm:h-32 lg:h-40 w-auto blur-lg opacity-50",
-                    !isScrolled && "brightness-0 invert"
-                  )}
-                />
-              </div>
-            </div>
+            <span className={cn(
+              "text-xl sm:text-2xl font-bold tracking-tight transition-all duration-300 group-hover:opacity-80",
+              isScrolled ? "text-foreground" : "text-white"
+            )}>
+              Axis Systems
+            </span>
           </Link>
 
           {/* Right: Hamburger Menu - Always visible */}
@@ -118,7 +102,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               <div className="flex flex-col h-full">
                 {/* Mobile Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
-                  <img src={axisLogo} alt="Axis Systems" className="h-12" />
+                  <span className="text-xl font-bold tracking-tight text-foreground">Axis Systems</span>
                 </div>
                 
                 {/* Nav Links */}

@@ -103,7 +103,7 @@ export function LandingFooter() {
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-6">
             <Link to="/" className="inline-block group">
-              <span className="text-4xl md:text-5xl font-bold tracking-tight text-white transition-all duration-300 group-hover:opacity-80">
+              <span className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-all duration-300 group-hover:opacity-80">
                 Axis Systems
               </span>
             </Link>
