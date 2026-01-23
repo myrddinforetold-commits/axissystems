@@ -82,7 +82,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               isScrolled ? "text-foreground" : "text-white"
             )}>
               <span>axis</span>
-              <span className="-mt-1">systems</span>
+              <span className="-mt-2">systems</span>
             </span>
           </Link>
 
@@ -105,7 +105,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
                   <span className="text-base tracking-tight text-foreground flex flex-col leading-none">
                     <span>axis</span>
-                    <span className="-mt-1">systems</span>
+                    <span className="-mt-2">systems</span>
                   </span>
                 </div>
                 
