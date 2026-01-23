@@ -7,6 +7,7 @@ import ActiveWorkCard from "./ActiveWorkCard";
 import CompletedDeliverableCard from "./CompletedDeliverableCard";
 import WorkProgressChart from "./WorkProgressChart";
 import ExternalActionsCard from "./ExternalActionsCard";
+import ObjectiveProgressCard from "./ObjectiveProgressCard";
 import { ClipboardList, CheckCircle2 } from "lucide-react";
 
 interface Task {
@@ -126,6 +127,9 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
     <div className="space-y-6">
       {/* External Actions (only shows if there are pending actions) */}
       <ExternalActionsCard companyId={companyId} />
+
+      {/* Objective Progress */}
+      <ObjectiveProgressCard companyId={companyId} />
 
       {/* Progress Overview */}
       <WorkProgressChart 
