@@ -115,6 +115,7 @@ export type Database = {
           not_yet_exists: Json
           products: Json
           status: string
+          technical_context: Json | null
           updated_at: string
         }
         Insert: {
@@ -131,6 +132,7 @@ export type Database = {
           not_yet_exists?: Json
           products?: Json
           status?: string
+          technical_context?: Json | null
           updated_at?: string
         }
         Update: {
@@ -147,6 +149,7 @@ export type Database = {
           not_yet_exists?: Json
           products?: Json
           status?: string
+          technical_context?: Json | null
           updated_at?: string
         }
         Relationships: [

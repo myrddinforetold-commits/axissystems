@@ -8,6 +8,7 @@ import NotExistsStep from "./steps/NotExistsStep";
 import AspirationsStep from "./steps/AspirationsStep";
 import CustomerStep from "./steps/CustomerStep";
 import ConstraintsStep from "./steps/ConstraintsStep";
+import TechnicalStep, { type TechnicalContext } from "./steps/TechnicalStep";
 import SummaryStep from "./steps/SummaryStep";
 
 export interface GroundingData {
@@ -20,6 +21,7 @@ export interface GroundingData {
     type: "technical" | "market" | "organizational";
     description: string;
   }>;
+  technicalContext: TechnicalContext;
 }
 
 export interface CurrentStateSummary {
@@ -35,9 +37,9 @@ interface GroundingWizardProps {
   onComplete: () => void;
 }
 
-type Step = "exists" | "not_exists" | "aspirations" | "customer" | "constraints" | "summary";
+type Step = "exists" | "not_exists" | "aspirations" | "customer" | "constraints" | "technical" | "summary";
 
-const STEPS: Step[] = ["exists", "not_exists", "aspirations", "customer", "constraints", "summary"];
+const STEPS: Step[] = ["exists", "not_exists", "aspirations", "customer", "constraints", "technical", "summary"];
 
 export default function GroundingWizard({
   open,
@@ -57,6 +59,12 @@ export default function GroundingWizard({
     aspirations: [],
     intendedCustomer: "",
     constraints: [],
+    technicalContext: {
+      databaseTables: [],
+      apiEndpoints: [],
+      techStack: [],
+      externalServices: [],
+    },
   });
 
   const currentStepIndex = STEPS.indexOf(currentStep);
@@ -96,6 +104,7 @@ export default function GroundingWizard({
           aspirations: groundingData.aspirations,
           intended_customer: groundingData.intendedCustomer,
           constraints: groundingData.constraints,
+          technical_context: groundingData.technicalContext,
           status: "pending_confirmation",
         } as any, { onConflict: "company_id" }) as any);
 
@@ -214,6 +223,16 @@ export default function GroundingWizard({
           <ConstraintsStep
             items={groundingData.constraints}
             onChange={(items) => updateGroundingData("constraints", items)}
+            onContinue={handleNext}
+            onBack={handleBack}
+            isLoading={false}
+          />
+        )}
+
+        {currentStep === "technical" && (
+          <TechnicalStep
+            data={groundingData.technicalContext}
+            onChange={(data) => updateGroundingData("technicalContext", data)}
             onContinue={handleGenerateSummary}
             onBack={handleBack}
             isLoading={isLoading}
