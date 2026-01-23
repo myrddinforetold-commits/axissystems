@@ -78,7 +78,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
             className="group"
           >
             <span className={cn(
-              "text-lg sm:text-xl tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none",
+              "text-base sm:text-lg tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none",
               isScrolled ? "text-foreground" : "text-white"
             )}>
               <span>axis</span>
@@ -103,7 +103,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               <div className="flex flex-col h-full">
                 {/* Mobile Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
-                  <span className="text-lg tracking-tight text-foreground flex flex-col leading-none">
+                  <span className="text-base tracking-tight text-foreground flex flex-col leading-none">
                     <span>axis</span>
                     <span className="-mt-1">systems</span>
                   </span>
