@@ -28,7 +28,7 @@ export function ProductSection() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,hsl(var(--border)),transparent_70%)] opacity-30" />
       
       <div className="max-w-6xl mx-auto relative">
-        <h2 className="text-2xl md:text-3xl font-medium text-foreground text-center mb-16 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+        <h2 className="text-2xl md:text-3xl font-medium text-foreground text-center mb-16 opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
           What Axis Systems provides
         </h2>
         <div className="grid md:grid-cols-3 gap-12 md:gap-8">
@@ -41,7 +41,7 @@ export function ProductSection() {
               <div className="inline-flex items-center justify-center w-12 h-12 mb-6 border border-border rounded-none bg-background group-hover:bg-foreground group-hover:border-foreground transition-colors duration-300">
                 <feature.icon className="w-5 h-5 text-foreground group-hover:text-background transition-colors duration-300" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-3">
+              <h3 className="text-lg font-medium text-foreground mb-3 font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 {feature.title}
               </h3>
               <p className="text-muted-foreground leading-relaxed">

@@ -26,7 +26,7 @@ export function CTASection({ onRequestAccess }: CTASectionProps) {
           <span className="text-sm text-foreground/80">Join 50+ companies</span>
         </div>
         
-        <h2 className="text-3xl md:text-5xl font-light text-foreground mb-6 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+        <h2 className="text-3xl md:text-5xl font-light text-foreground mb-6 opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
           Ready to give your company
           <br />
           <span className="text-gradient-shimmer">a nervous system?</span>

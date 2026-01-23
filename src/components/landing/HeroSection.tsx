@@ -35,7 +35,7 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
       {/* Main content - centered overlay */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
         {/* Headline with word-by-word reveal */}
-        <h1 className="text-4xl md:text-6xl lg:text-8xl font-light tracking-tight leading-[1.05]">
+        <h1 className="text-4xl md:text-6xl lg:text-8xl font-light tracking-tight leading-[1.05] font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
           <span className="block opacity-0 animate-fade-in-up" style={{ animationDelay: "0.3s", animationFillMode: "forwards" }}>
             <span className="text-foreground">Your company's</span>
           </span>
