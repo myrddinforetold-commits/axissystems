@@ -3,21 +3,36 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import axisLogo from "@/assets/axis-logo.png";
+import { Menu, ArrowRight } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface LandingHeaderProps {
   onRequestAccess?: () => void;
   showCTA?: boolean;
 }
 
+const navLinks = [
+  { label: "Product", href: "#product" },
+  { label: "Features", href: "#features" },
+  { label: "How It Works", href: "#how-it-works" },
+];
+
 export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
       
+      // Update scroll progress
+      setScrollProgress((currentScrollY / scrollHeight) * 100);
+      
+      // Hide/show header based on scroll direction
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
         setIsVisible(false);
       } else {
@@ -27,62 +42,181 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       setIsScrolled(currentScrollY > 50);
       setLastScrollY(currentScrollY);
     };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
+
+  const scrollToSection = (href: string) => {
+    const element = document.querySelector(href);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+    setMobileMenuOpen(false);
+  };
 
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
         isVisible ? "translate-y-0" : "-translate-y-full",
-        isScrolled ? "bg-black/80 backdrop-blur-xl" : "bg-black"
+        isScrolled 
+          ? "bg-background/90 backdrop-blur-xl border-b border-border/50" 
+          : "bg-black"
       )}
     >
-      <nav className="relative w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 sm:h-24 lg:h-28 items-center justify-center">
-          {/* Left: Request Access */}
-          {showCTA && onRequestAccess && (
-            <div className="absolute left-4 sm:left-6 lg:left-8">
+      {/* Scroll Progress Bar */}
+      <div 
+        className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[hsl(var(--neon-cyan))] via-[hsl(var(--neon-purple))] to-[hsl(var(--neon-cyan))]" 
+        style={{ width: `${scrollProgress}%` }} 
+      />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-20">
+          {/* Left: CTA Button + Nav Links */}
+          <div className="flex items-center gap-2 sm:gap-6">
+            {showCTA && onRequestAccess && (
               <Button
-                variant="outline"
-                size="sm"
                 onClick={onRequestAccess}
+                size="sm"
                 className={cn(
-                  "border-white/30 bg-transparent text-white/90 hover:bg-white/20 hover:text-white hover:border-white/50 transition-all duration-300 rounded-none",
-                  isScrolled && "animate-glow-pulse"
+                  "hidden md:flex items-center gap-2 bg-transparent border transition-all duration-300 rounded-sm",
+                  isScrolled 
+                    ? "border-[hsl(var(--neon-cyan)/0.5)] text-foreground hover:bg-[hsl(var(--neon-cyan)/0.1)] hover:shadow-[0_0_20px_hsl(var(--neon-cyan)/0.3)]" 
+                    : "border-white/30 text-white hover:bg-white/10"
                 )}
               >
                 Request Access
+                <ArrowRight className="w-3 h-3" />
               </Button>
-            </div>
-          )}
+            )}
+            
+            {/* Desktop Nav Links */}
+            <nav className="hidden lg:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <button
+                  key={link.label}
+                  onClick={() => scrollToSection(link.href)}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-all duration-300 rounded-lg relative group",
+                    isScrolled 
+                      ? "text-muted-foreground hover:text-foreground" 
+                      : "text-white/70 hover:text-white"
+                  )}
+                >
+                  {link.label}
+                  <span className="absolute bottom-1 left-3 right-3 h-[2px] bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                </button>
+              ))}
+            </nav>
+          </div>
 
           {/* Center: Logo */}
-          <Link to="/" className="flex-shrink-0 group">
-            <img 
-              src={axisLogo} 
-              alt="Axis Systems" 
-              className="h-32 sm:h-40 lg:h-48 w-auto transition-transform duration-300 group-hover:scale-105" 
-            />
+          <Link 
+            to="/" 
+            className="absolute left-1/2 -translate-x-1/2 group"
+          >
+            <div className="relative">
+              <img
+                src={axisLogo}
+                alt="Axis Systems"
+                className={cn(
+                  "h-24 sm:h-32 lg:h-40 w-auto transition-all duration-300 group-hover:scale-105",
+                  !isScrolled && "brightness-0 invert"
+                )}
+              />
+              {/* Logo glow effect on hover */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <img
+                  src={axisLogo}
+                  alt=""
+                  className={cn(
+                    "h-24 sm:h-32 lg:h-40 w-auto blur-lg opacity-50",
+                    !isScrolled && "brightness-0 invert"
+                  )}
+                />
+              </div>
+            </div>
           </Link>
 
-          {/* Right: Login */}
-          <div className="absolute right-4 sm:right-6 lg:right-8">
-            <Link to="/login">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white/90 hover:text-white hover:bg-white/20 transition-all duration-300 rounded-none relative overflow-hidden group"
-              >
-                <span className="relative z-10">Login</span>
-                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-white/50 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-              </Button>
+          {/* Right: Login + Mobile Menu */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link
+              to="/login"
+              className={cn(
+                "hidden md:flex items-center gap-2 text-sm font-medium transition-all duration-300 group px-3 py-2",
+                isScrolled 
+                  ? "text-foreground hover:text-[hsl(var(--neon-cyan))]" 
+                  : "text-white hover:text-white/80"
+              )}
+            >
+              Login
+              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
             </Link>
+
+            {/* Mobile Menu */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "lg:hidden",
+                    isScrolled ? "text-foreground hover:bg-accent" : "text-white hover:bg-white/10"
+                  )}
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:w-[400px] bg-background/95 backdrop-blur-xl border-l border-border/50 p-0">
+                <div className="flex flex-col h-full">
+                  {/* Mobile Header */}
+                  <div className="flex items-center justify-between p-6 border-b border-border/50">
+                    <img src={axisLogo} alt="Axis Systems" className="h-12" />
+                  </div>
+                  
+                  {/* Mobile Nav Links */}
+                  <nav className="flex-1 p-6 space-y-2">
+                    {navLinks.map((link, index) => (
+                      <button
+                        key={link.label}
+                        onClick={() => scrollToSection(link.href)}
+                        className="w-full text-left px-4 py-4 text-lg font-medium text-foreground hover:text-[hsl(var(--neon-cyan))] transition-colors rounded-lg hover:bg-accent/50"
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      >
+                        {link.label}
+                      </button>
+                    ))}
+                  </nav>
+                  
+                  {/* Mobile CTA Section */}
+                  <div className="p-6 border-t border-border/50 space-y-3">
+                    {onRequestAccess && (
+                      <Button
+                        onClick={() => {
+                          onRequestAccess();
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] text-white hover:opacity-90"
+                      >
+                        Request Access
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    )}
+                    <Link to="/login" className="block">
+                      <Button variant="outline" className="w-full">
+                        Login
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
-      </nav>
+      </div>
     </header>
   );
 }
+
+export default LandingHeader;

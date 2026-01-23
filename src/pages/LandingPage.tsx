@@ -19,12 +19,18 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <LandingHeader onRequestAccess={handleRequestAccess} />
-      <main className="pt-20 sm:pt-24 lg:pt-28">
+      <main>
         <HeroSection onRequestAccess={handleRequestAccess} />
         <LogoMarquee />
-        <BentoFeatures />
-        <InteractiveTimeline />
-        <ProductDemo />
+        <section id="product">
+          <ProductDemo />
+        </section>
+        <section id="features">
+          <BentoFeatures />
+        </section>
+        <section id="how-it-works">
+          <InteractiveTimeline />
+        </section>
         <CTASection onRequestAccess={handleRequestAccess} />
       </main>
       <LandingFooter />
