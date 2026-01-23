@@ -78,11 +78,11 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
             className="group"
           >
             <span className={cn(
-              "text-base sm:text-lg tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none font-mono",
+              "text-sm sm:text-base tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none font-mono",
               isScrolled ? "text-foreground" : "text-white"
             )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               <span>axis</span>
-              <span className="-mt-2">systems</span>
+              <span className="-mt-1.5">systems</span>
             </span>
           </Link>
 
@@ -103,9 +103,9 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               <div className="flex flex-col h-full">
                 {/* Mobile Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
-                  <span className="text-base tracking-tight text-foreground flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span className="text-sm tracking-tight text-foreground flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     <span>axis</span>
-                    <span className="-mt-2">systems</span>
+                    <span className="-mt-1.5">systems</span>
                   </span>
                 </div>
                 
