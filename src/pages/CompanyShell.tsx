@@ -12,6 +12,8 @@ import RolesTab from '@/components/roles/RolesTab';
 import WorkflowTab from '@/components/workflow/WorkflowTab';
 import CompanyDashboard from '@/components/dashboard/CompanyDashboard';
 import WebhookSettingsTab from '@/components/settings/WebhookSettingsTab';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 
 interface Company {
   id: string;
@@ -36,6 +38,7 @@ export default function CompanyShell() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingWorkflowCount, setPendingWorkflowCount] = useState(0);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
 
   useEffect(() => {
     async function fetchCompany() {
@@ -161,12 +164,20 @@ export default function CompanyShell() {
               )}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </Button>
+          <div className="flex items-center gap-2">
+            <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </div>
       </header>
+      
+      <NotificationPanel 
+        open={notificationPanelOpen} 
+        onOpenChange={setNotificationPanelOpen} 
+      />
 
       <main className="mx-auto max-w-5xl px-4 py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
