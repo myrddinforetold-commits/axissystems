@@ -103,7 +103,7 @@ export function LandingFooter() {
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-6">
             <Link to="/" className="inline-block group">
-              <span className="text-lg md:text-xl tracking-tight text-white transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none">
+              <span className="text-lg md:text-xl tracking-tight text-white transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 <span>axis</span>
                 <span className="-mt-2">systems</span>
               </span>
