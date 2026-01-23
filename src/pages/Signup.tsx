@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import axisLogo from '@/assets/axis-logo.png';
+
 
 export default function Signup() {
   const { signUp, user, loading } = useAuth();
@@ -71,7 +71,10 @@ export default function Signup() {
       >
         <div className="max-w-6xl mx-auto px-6 py-4">
           <Link to="/">
-            <img src={axisLogo} alt="Axis Systems" className="h-10" />
+            <div className="font-mono text-sm leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="block text-white">axis</span>
+              <span className="block text-white -mt-1">systems</span>
+            </div>
           </Link>
         </div>
       </header>

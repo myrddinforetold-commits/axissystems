@@ -11,7 +11,7 @@ import {
   LogOut,
   ArrowLeft
 } from 'lucide-react';
-import axisLogo from '@/assets/axis-logo.png';
+
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,10 +32,13 @@ export function AdminLayout() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-20 items-center border-b border-border px-4">
-            <Link to="/admin">
-              <img src={axisLogo} alt="Axis Systems" className="h-12 w-auto invert dark:invert-0" />
+            <Link to="/admin" className="flex items-center gap-2">
+              <div className="font-mono text-sm leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <span className="block text-foreground">axis</span>
+                <span className="block text-foreground -mt-1">systems</span>
+              </div>
+              <span className="text-xs font-medium text-primary">ADMIN</span>
             </Link>
-            <span className="ml-2 text-xs font-medium text-primary">ADMIN</span>
           </div>
 
           {/* Navigation */}
