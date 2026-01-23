@@ -12,10 +12,11 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
       {/* Neural mesh canvas - full screen */}
       <NeuralMeshBackground />
       
-      {/* Layered gradient overlays for depth */}
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-transparent to-transparent" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(var(--background)/0.4)_70%)]" />
+      {/* Darker layered gradient overlays for better text contrast */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/30 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--background)/0.3)_0%,hsl(var(--background)/0.6)_70%)]" />
+      <div className="absolute inset-0 bg-background/20" />
       
       {/* Animated grid pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.03)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.03)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
@@ -33,14 +34,6 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
       
       {/* Main content - centered overlay */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-        {/* Badge */}
-        <div className="glass-card px-6 py-3 rounded-full mb-8 inline-flex opacity-0 animate-fade-in" style={{ animationDelay: "0.2s", animationFillMode: "forwards" }}>
-          <span className="flex items-center gap-2 text-sm text-foreground/80">
-            <Sparkles className="w-4 h-4 text-[hsl(var(--neon-cyan))] animate-pulse" />
-            The future of enterprise AI
-          </span>
-        </div>
-        
         {/* Headline with word-by-word reveal */}
         <h1 className="text-4xl md:text-6xl lg:text-8xl font-light tracking-tight leading-[1.05]">
           <span className="block opacity-0 animate-fade-in-up" style={{ animationDelay: "0.3s", animationFillMode: "forwards" }}>
