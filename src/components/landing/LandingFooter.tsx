@@ -107,7 +107,7 @@ export function LandingFooter() {
               <img 
                 src={axisLogo} 
                 alt="Axis Systems" 
-                className="h-16 transition-all duration-300 group-hover:opacity-80 brightness-0 invert"
+                className="h-32 transition-all duration-300 group-hover:opacity-80 brightness-0 invert"
               />
             </Link>
             <p className="text-white/50 max-w-xs leading-relaxed">
