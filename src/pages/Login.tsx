@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import axisLogo from '@/assets/axis-logo.png';
+
 
 export default function Login() {
   const navigate = useNavigate();
@@ -78,11 +78,10 @@ export default function Login() {
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center">
             <Link to="/" className="flex-shrink-0">
-              <img 
-                src={axisLogo} 
-                alt="Axis Systems" 
-                className="h-20 w-auto" 
-              />
+              <div className="font-mono text-sm leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <span className="block text-white">axis</span>
+                <span className="block text-white -mt-1">systems</span>
+              </div>
             </Link>
           </div>
         </nav>
