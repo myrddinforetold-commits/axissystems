@@ -27,10 +27,6 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[hsl(var(--neon-cyan)/0.04)] rounded-full blur-[150px] animate-pulse-slow" />
       <div className="absolute top-1/3 right-1/3 w-[300px] h-[300px] bg-[hsl(180_100%_50%/0.06)] rounded-full blur-[80px] animate-float" style={{ animationDelay: "-7s" }} />
       
-      {/* Product label */}
-      <div className="absolute top-24 left-6 text-xs uppercase tracking-widest text-foreground/30 opacity-0 animate-fade-in z-10" style={{ animationDelay: "0.1s", animationFillMode: "forwards" }}>
-        Axis Systems • 2026
-      </div>
       
       {/* Main content - centered overlay */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
