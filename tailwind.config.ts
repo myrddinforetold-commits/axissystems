@@ -172,6 +172,10 @@ export default {
           "0%": { transform: "translateY(100%)" },
           "100%": { transform: "translateY(0)" },
         },
+        "pulse-slow": {
+          "0%, 100%": { opacity: "0.4", transform: "scale(1)" },
+          "50%": { opacity: "0.7", transform: "scale(1.1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -198,6 +202,7 @@ export default {
         "blink": "blink 1s step-end infinite",
         "shimmer": "shimmer 2s linear infinite",
         "counter": "counter 0.5s ease-out forwards",
+        "pulse-slow": "pulse-slow 8s ease-in-out infinite",
       },
     },
   },
