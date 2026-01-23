@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import axisLogo from "@/assets/axis-logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Github, Linkedin, Twitter } from "lucide-react";
@@ -104,11 +103,9 @@ export function LandingFooter() {
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-6">
             <Link to="/" className="inline-block group">
-              <img 
-                src={axisLogo} 
-                alt="Axis Systems" 
-                className="h-32 transition-all duration-300 group-hover:opacity-80 brightness-0 invert"
-              />
+              <span className="text-4xl md:text-5xl font-bold tracking-tight text-white transition-all duration-300 group-hover:opacity-80">
+                Axis Systems
+              </span>
             </Link>
             <p className="text-white/50 max-w-xs leading-relaxed">
               The operating system for company AI. Persistent context, aligned roles, and traceable execution.
