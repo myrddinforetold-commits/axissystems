@@ -14,7 +14,7 @@ export function AudienceSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted to-transparent opacity-50" />
       
       <div className="max-w-4xl mx-auto text-center relative">
-        <h2 className="text-2xl md:text-3xl font-medium text-foreground mb-12 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+        <h2 className="text-2xl md:text-3xl font-medium text-foreground mb-12 opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
           Built for
         </h2>
         <ul className="space-y-5 inline-block text-left">

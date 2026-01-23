@@ -25,7 +25,7 @@ export function HowItWorksSection() {
   return (
     <section className="py-24 md:py-32 px-6 relative">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-2xl md:text-3xl font-medium text-foreground text-center mb-16 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+        <h2 className="text-2xl md:text-3xl font-medium text-foreground text-center mb-16 opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
           How it works
         </h2>
         <div className="relative">
@@ -45,7 +45,7 @@ export function HowItWorksSection() {
                   </span>
                 </span>
                 <div className="pb-2">
-                  <h3 className="text-lg font-medium text-foreground mb-2 group-hover:translate-x-1 transition-transform">
+                  <h3 className="text-lg font-medium text-foreground mb-2 group-hover:translate-x-1 transition-transform font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     {step.title}
                   </h3>
                   <p className="text-muted-foreground">

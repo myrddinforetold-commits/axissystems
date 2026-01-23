@@ -67,7 +67,7 @@ export function InteractiveTimeline() {
           <p className="text-sm uppercase tracking-widest text-muted-foreground mb-4 opacity-0 animate-fade-in">
             How it works
           </p>
-          <h2 className="text-3xl md:text-4xl font-light text-foreground opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+          <h2 className="text-3xl md:text-4xl font-light text-foreground opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
             From zero to operational AI in minutes
           </h2>
         </div>
@@ -127,7 +127,7 @@ export function InteractiveTimeline() {
                       {step.number}
                     </span>
                     
-                    <h3 className="text-xl font-medium text-foreground mt-2 mb-3">
+                    <h3 className="text-xl font-medium text-foreground mt-2 mb-3 font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {step.title}
                     </h3>
                     

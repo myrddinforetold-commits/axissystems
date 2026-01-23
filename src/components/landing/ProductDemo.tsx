@@ -59,7 +59,7 @@ export function ProductDemo() {
           <p className="text-sm uppercase tracking-widest text-muted-foreground mb-4 opacity-0 animate-fade-in">
             See it in action
           </p>
-          <h2 className="text-3xl md:text-4xl font-light text-foreground opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+          <h2 className="text-3xl md:text-4xl font-light text-foreground opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
             Your AI command center
           </h2>
         </div>
@@ -87,7 +87,7 @@ export function ProductDemo() {
 
           {/* Content area */}
           <div className="p-6 min-h-[300px]">
-            <h3 className="text-lg font-medium text-foreground mb-6">
+            <h3 className="text-lg font-medium text-foreground mb-6 font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {currentTab?.content.title}
             </h3>
 

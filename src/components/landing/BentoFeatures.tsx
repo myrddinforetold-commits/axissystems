@@ -103,7 +103,7 @@ function FeatureCard({ icon: Icon, title, description, size, gradient, index }: 
             <Icon className="w-5 h-5 text-foreground/70 group-hover:text-cyan-400 transition-colors duration-300" />
           </div>
           
-          <h3 className="text-lg font-semibold text-foreground mb-3 group-hover:text-gradient-shimmer transition-all duration-300">
+          <h3 className="text-lg font-semibold text-foreground mb-3 group-hover:text-gradient-shimmer transition-all duration-300 font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             {title}
           </h3>
           
@@ -131,7 +131,7 @@ export function BentoFeatures() {
           <p className="text-sm uppercase tracking-widest text-muted-foreground mb-4 opacity-0 animate-fade-in">
             Platform Capabilities
           </p>
-          <h2 className="text-3xl md:text-4xl font-light text-foreground opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+          <h2 className="text-3xl md:text-4xl font-light text-foreground opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
             Everything your AI workforce needs
           </h2>
         </div>
