@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Building2, LogOut, ArrowLeft, Users, Bot, Activity, LayoutDashboard, Library } from 'lucide-react';
+import { Building2, LogOut, ArrowLeft, Users, Bot, Activity, LayoutDashboard, Library, Settings } from 'lucide-react';
 import TeamTab from '@/components/company/TeamTab';
 import RolesTab from '@/components/roles/RolesTab';
 import WorkflowTab from '@/components/workflow/WorkflowTab';
 import CompanyDashboard from '@/components/dashboard/CompanyDashboard';
+import WebhookSettingsTab from '@/components/settings/WebhookSettingsTab';
 
 interface Company {
   id: string;
@@ -194,6 +195,12 @@ export default function CompanyShell() {
                   )}
                 </TabsTrigger>
               )}
+              {isOwner && (
+                <TabsTrigger value="settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </TabsTrigger>
+              )}
             </TabsList>
             <Button 
               variant="outline" 
@@ -226,6 +233,12 @@ export default function CompanyShell() {
           {isOwner && (
             <TabsContent value="workflow">
               <WorkflowTab companyId={company.id} />
+            </TabsContent>
+          )}
+
+          {isOwner && (
+            <TabsContent value="settings">
+              <WebhookSettingsTab companyId={company.id} />
             </TabsContent>
           )}
         </Tabs>

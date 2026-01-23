@@ -290,6 +290,56 @@ export type Database = {
           },
         ]
       }
+      company_webhooks: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          event_types: string[] | null
+          headers: Json | null
+          id: string
+          is_active: boolean | null
+          name: string
+          secret: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          event_types?: string[] | null
+          headers?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          secret?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_types?: string[] | null
+          headers?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          secret?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_webhooks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cos_reports: {
         Row: {
           company_id: string
@@ -869,6 +919,70 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      webhook_deliveries: {
+        Row: {
+          company_id: string
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          output_action_id: string | null
+          payload: Json
+          response_body: string | null
+          response_status: number | null
+          retry_count: number | null
+          webhook_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          output_action_id?: string | null
+          payload: Json
+          response_body?: string | null
+          response_status?: number | null
+          retry_count?: number | null
+          webhook_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          output_action_id?: string | null
+          payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          retry_count?: number | null
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_output_action_id_fkey"
+            columns: ["output_action_id"]
+            isOneToOne: false
+            referencedRelation: "output_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "company_webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workflow_requests: {
         Row: {

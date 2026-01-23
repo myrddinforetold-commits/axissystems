@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.workflow-approve]
 verify_jwt = false
+
+[functions.webhook-dispatcher]
+verify_jwt = false
+
+[functions.webhook-callback]
+verify_jwt = false
