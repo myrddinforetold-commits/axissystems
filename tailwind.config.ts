@@ -65,20 +65,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
         "fade-in": {
           "0%": { opacity: "0", transform: "translateY(20px)" },
@@ -134,6 +126,52 @@ export default {
           "0%, 100%": { opacity: "0.4", backgroundPosition: "0% 50%" },
           "50%": { opacity: "0.8", backgroundPosition: "100% 50%" },
         },
+        "marquee": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { boxShadow: "0 0 20px hsl(var(--neon-cyan) / 0.3), 0 0 40px hsl(var(--neon-cyan) / 0.1)" },
+          "50%": { boxShadow: "0 0 30px hsl(var(--neon-cyan) / 0.5), 0 0 60px hsl(var(--neon-cyan) / 0.2)" },
+        },
+        "gradient-x": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+        "draw-line": {
+          "0%": { strokeDashoffset: "1000" },
+          "100%": { strokeDashoffset: "0" },
+        },
+        "node-pulse": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.5" },
+          "50%": { transform: "scale(1.5)", opacity: "0.8" },
+        },
+        "data-flow": {
+          "0%": { transform: "translateY(0) translateX(0)", opacity: "0" },
+          "20%": { opacity: "1" },
+          "80%": { opacity: "1" },
+          "100%": { transform: "translateY(-200px) translateX(50px)", opacity: "0" },
+        },
+        "typewriter": {
+          "0%": { width: "0" },
+          "100%": { width: "100%" },
+        },
+        "blink": {
+          "0%, 50%": { opacity: "1" },
+          "51%, 100%": { opacity: "0" },
+        },
+        "tilt": {
+          "0%": { transform: "rotateX(0) rotateY(0)" },
+          "100%": { transform: "rotateX(var(--tilt-x)) rotateY(var(--tilt-y))" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "counter": {
+          "0%": { transform: "translateY(100%)" },
+          "100%": { transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -150,6 +188,16 @@ export default {
         "holographic-shift": "holographic-shift 8s ease infinite",
         "metallic-shimmer": "metallic-shimmer 3s ease-in-out infinite",
         "border-glow": "border-glow 4s ease infinite",
+        "marquee": "marquee 30s linear infinite",
+        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "gradient-x": "gradient-x 3s ease infinite",
+        "draw-line": "draw-line 2s ease-out forwards",
+        "node-pulse": "node-pulse 3s ease-in-out infinite",
+        "data-flow": "data-flow 4s ease-in-out infinite",
+        "typewriter": "typewriter 2s steps(40) forwards",
+        "blink": "blink 1s step-end infinite",
+        "shimmer": "shimmer 2s linear infinite",
+        "counter": "counter 0.5s ease-out forwards",
       },
     },
   },

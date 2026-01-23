@@ -69,6 +69,12 @@ All colors MUST be HSL.
     --alien-gold: 44 100% 52%;
     --alien-copper: 20 100% 37%;
     --alien-cyan: 184 100% 50%;
+    
+    /* Next-gen neon accents */
+    --neon-cyan: 180 100% 50%;
+    --neon-purple: 270 100% 60%;
+    --neon-blue: 210 100% 60%;
+    --glass-white: 0 0% 100%;
   }
 
   .dark {
@@ -157,5 +163,77 @@ All colors MUST be HSL.
 
   .border-alien-button {
     border-color: hsl(var(--alien-cyan) / 0.4);
+  }
+  
+  /* Glassmorphism utilities */
+  .glass {
+    background: hsl(var(--glass-white) / 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-white) / 0.1);
+  }
+  
+  .glass-card {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--glass-white) / 0.1),
+      hsl(var(--glass-white) / 0.05)
+    );
+    backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-white) / 0.15);
+  }
+  
+  .glass-dark {
+    background: hsl(0 0% 0% / 0.4);
+    backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--glass-white) / 0.08);
+  }
+  
+  .glow-border {
+    box-shadow: 
+      0 0 20px hsl(var(--neon-cyan) / 0.15),
+      inset 0 0 20px hsl(var(--neon-cyan) / 0.05);
+    border: 1px solid hsl(var(--neon-cyan) / 0.3);
+  }
+  
+  .glow-border-purple {
+    box-shadow: 
+      0 0 20px hsl(var(--neon-purple) / 0.15),
+      inset 0 0 20px hsl(var(--neon-purple) / 0.05);
+    border: 1px solid hsl(var(--neon-purple) / 0.3);
+  }
+  
+  .text-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--foreground)),
+      hsl(var(--neon-cyan)),
+      hsl(var(--foreground))
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .text-gradient-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--foreground)) 0%,
+      hsl(var(--neon-cyan)) 50%,
+      hsl(var(--foreground)) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+  
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .preserve-3d {
+    transform-style: preserve-3d;
   }
 }
