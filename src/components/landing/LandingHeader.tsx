@@ -73,48 +73,10 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Left: CTA Button + Nav Links */}
-          <div className="flex items-center gap-2 sm:gap-6">
-            {showCTA && onRequestAccess && (
-              <Button
-                onClick={onRequestAccess}
-                size="sm"
-                className={cn(
-                  "hidden md:flex items-center gap-2 bg-transparent border transition-all duration-300 rounded-sm",
-                  isScrolled 
-                    ? "border-[hsl(var(--neon-cyan)/0.5)] text-foreground hover:bg-[hsl(var(--neon-cyan)/0.1)] hover:shadow-[0_0_20px_hsl(var(--neon-cyan)/0.3)]" 
-                    : "border-white/30 text-white hover:bg-white/10"
-                )}
-              >
-                Request Access
-                <ArrowRight className="w-3 h-3" />
-              </Button>
-            )}
-            
-            {/* Desktop Nav Links */}
-            <nav className="hidden lg:flex items-center gap-1">
-              {navLinks.map((link) => (
-                <button
-                  key={link.label}
-                  onClick={() => scrollToSection(link.href)}
-                  className={cn(
-                    "px-3 py-2 text-sm font-medium transition-all duration-300 rounded-lg relative group",
-                    isScrolled 
-                      ? "text-muted-foreground hover:text-foreground" 
-                      : "text-white/70 hover:text-white"
-                  )}
-                >
-                  {link.label}
-                  <span className="absolute bottom-1 left-3 right-3 h-[2px] bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Center: Logo */}
+          {/* Left: Logo */}
           <Link 
             to="/" 
-            className="absolute left-1/2 -translate-x-1/2 group"
+            className="group"
           >
             <div className="relative">
               <img
@@ -139,80 +101,63 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
             </div>
           </Link>
 
-          {/* Right: Login + Mobile Menu */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link
-              to="/login"
-              className={cn(
-                "hidden md:flex items-center gap-2 text-sm font-medium transition-all duration-300 group px-3 py-2",
-                isScrolled 
-                  ? "text-foreground hover:text-[hsl(var(--neon-cyan))]" 
-                  : "text-white hover:text-white/80"
-              )}
-            >
-              Login
-              <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
-            </Link>
-
-            {/* Mobile Menu */}
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "lg:hidden",
-                    isScrolled ? "text-foreground hover:bg-accent" : "text-white hover:bg-white/10"
-                  )}
-                >
-                  <Menu className="w-5 h-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-full sm:w-[400px] bg-background/95 backdrop-blur-xl border-l border-border/50 p-0">
-                <div className="flex flex-col h-full">
-                  {/* Mobile Header */}
-                  <div className="flex items-center justify-between p-6 border-b border-border/50">
-                    <img src={axisLogo} alt="Axis Systems" className="h-12" />
-                  </div>
-                  
-                  {/* Mobile Nav Links */}
-                  <nav className="flex-1 p-6 space-y-2">
-                    {navLinks.map((link, index) => (
-                      <button
-                        key={link.label}
-                        onClick={() => scrollToSection(link.href)}
-                        className="w-full text-left px-4 py-4 text-lg font-medium text-foreground hover:text-[hsl(var(--neon-cyan))] transition-colors rounded-lg hover:bg-accent/50"
-                        style={{ animationDelay: `${index * 100}ms` }}
-                      >
-                        {link.label}
-                      </button>
-                    ))}
-                  </nav>
-                  
-                  {/* Mobile CTA Section */}
-                  <div className="p-6 border-t border-border/50 space-y-3">
-                    {onRequestAccess && (
-                      <Button
-                        onClick={() => {
-                          onRequestAccess();
-                          setMobileMenuOpen(false);
-                        }}
-                        className="w-full bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] text-white hover:opacity-90"
-                      >
-                        Request Access
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    )}
-                    <Link to="/login" className="block">
-                      <Button variant="outline" className="w-full">
-                        Login
-                      </Button>
-                    </Link>
-                  </div>
+          {/* Right: Hamburger Menu - Always visible */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  isScrolled ? "text-foreground hover:bg-accent" : "text-white hover:bg-white/10"
+                )}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full sm:w-[400px] bg-background/95 backdrop-blur-xl border-l border-border/50 p-0">
+              <div className="flex flex-col h-full">
+                {/* Mobile Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border/50">
+                  <img src={axisLogo} alt="Axis Systems" className="h-12" />
                 </div>
-              </SheetContent>
-            </Sheet>
-          </div>
+                
+                {/* Nav Links */}
+                <nav className="flex-1 p-6 space-y-2">
+                  {navLinks.map((link, index) => (
+                    <button
+                      key={link.label}
+                      onClick={() => scrollToSection(link.href)}
+                      className="w-full text-left px-4 py-4 text-lg font-medium text-foreground hover:text-[hsl(var(--neon-cyan))] transition-colors rounded-lg hover:bg-accent/50"
+                      style={{ animationDelay: `${index * 100}ms` }}
+                    >
+                      {link.label}
+                    </button>
+                  ))}
+                </nav>
+                
+                {/* CTA Section */}
+                <div className="p-6 border-t border-border/50 space-y-3">
+                  {onRequestAccess && (
+                    <Button
+                      onClick={() => {
+                        onRequestAccess();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] text-white hover:opacity-90"
+                    >
+                      Request Access
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  )}
+                  <Link to="/login" className="block">
+                    <Button variant="outline" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
