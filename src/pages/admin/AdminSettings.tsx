@@ -2,8 +2,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 export default function AdminSettings() {
+  const { settings, isLoading, updateSetting, isUpdating } = usePlatformSettings();
+
+  const handleToggle = (key: string, checked: boolean) => {
+    updateSetting.mutate({ key: key as any, value: checked });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground">
+            Configure platform-wide settings
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-60" />
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+                <Skeleton className="h-6 w-11 rounded-full" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -26,7 +64,11 @@ export default function AdminSettings() {
                 Allow new users to create accounts
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch 
+              checked={settings?.allow_signups ?? true}
+              onCheckedChange={(checked) => handleToggle('allow_signups', checked)}
+              disabled={isUpdating}
+            />
           </div>
 
           <Separator />
@@ -38,7 +80,11 @@ export default function AdminSettings() {
                 Require users to verify their email before accessing the platform
               </p>
             </div>
-            <Switch />
+            <Switch 
+              checked={settings?.require_email_verification ?? false}
+              onCheckedChange={(checked) => handleToggle('require_email_verification', checked)}
+              disabled={isUpdating}
+            />
           </div>
 
           <Separator />
@@ -50,7 +96,11 @@ export default function AdminSettings() {
                 Show maintenance message to non-admin users
               </p>
             </div>
-            <Switch />
+            <Switch 
+              checked={settings?.maintenance_mode ?? false}
+              onCheckedChange={(checked) => handleToggle('maintenance_mode', checked)}
+              disabled={isUpdating}
+            />
           </div>
         </CardContent>
       </Card>
@@ -68,7 +118,11 @@ export default function AdminSettings() {
                 Allow AI roles to execute tasks autonomously
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch 
+              checked={settings?.feature_ai_task_execution ?? true}
+              onCheckedChange={(checked) => handleToggle('feature_ai_task_execution', checked)}
+              disabled={isUpdating}
+            />
           </div>
 
           <Separator />
@@ -80,7 +134,11 @@ export default function AdminSettings() {
                 Enable AI-generated summary reports
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch 
+              checked={settings?.feature_cos_reports ?? true}
+              onCheckedChange={(checked) => handleToggle('feature_cos_reports', checked)}
+              disabled={isUpdating}
+            />
           </div>
 
           <Separator />
@@ -92,7 +150,11 @@ export default function AdminSettings() {
                 Allow users to pin information to company-wide memory
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch 
+              checked={settings?.feature_company_memory ?? true}
+              onCheckedChange={(checked) => handleToggle('feature_company_memory', checked)}
+              disabled={isUpdating}
+            />
           </div>
         </CardContent>
       </Card>
