@@ -22,6 +22,7 @@ import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAccessRequests from "./pages/admin/AdminAccessRequests";
 import AdminSettings from "./pages/admin/AdminSettings";
+import MaintenancePage from "./pages/MaintenancePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,7 @@ const App = () => (
               <Route path="access-requests" element={<AdminAccessRequests />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
+            <Route path="/maintenance" element={<MaintenancePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
