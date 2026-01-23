@@ -248,7 +248,7 @@ serve(async (req) => {
     let groundingContext = "";
     const { data: grounding } = await supabaseClient
       .from("company_grounding")
-      .select("*")
+      .select("*, technical_context")
       .eq("company_id", task.company_id)
       .eq("status", "confirmed")
       .single();
@@ -278,6 +278,13 @@ ${Array.isArray(grounding.constraints) ? grounding.constraints.map((c: any) => `
 
 ### Current State Summary:
 ${grounding.current_state_summary ? JSON.stringify(grounding.current_state_summary) : "Not available"}
+
+${grounding.technical_context ? `### Customer Technical Architecture:
+${grounding.technical_context.databaseTables?.length ? `Database Tables:\n${grounding.technical_context.databaseTables.map((t: any) => `- ${t.name}: ${t.description}${t.keyColumns ? ` (keys: ${t.keyColumns})` : ""}`).join("\n")}` : ""}
+${grounding.technical_context.apiEndpoints?.length ? `\nAPI Endpoints:\n${grounding.technical_context.apiEndpoints.map((e: any) => `- ${e.method} ${e.path}: ${e.description}`).join("\n")}` : ""}
+${grounding.technical_context.techStack?.length ? `\nTech Stack:\n${grounding.technical_context.techStack.map((t: any) => `- ${t.category}: ${t.name}${t.version ? ` v${t.version}` : ""}`).join("\n")}` : ""}
+${grounding.technical_context.externalServices?.length ? `\nExternal Services:\n${grounding.technical_context.externalServices.map((s: any) => `- ${s.name}: ${s.purpose}`).join("\n")}` : ""}
+` : ""}
 `;
     } else {
       groundingContext = `\n\n## COMPANY GROUNDING

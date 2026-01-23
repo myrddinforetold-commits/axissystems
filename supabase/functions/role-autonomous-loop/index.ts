@@ -104,6 +104,12 @@ interface RoleContext {
       assumptions: string[];
       openQuestions: string[];
     } | null;
+    technicalContext: {
+      databaseTables?: Array<{ name: string; description: string; keyColumns?: string }>;
+      apiEndpoints?: Array<{ method: string; path: string; description: string }>;
+      techStack?: Array<{ category: string; name: string; version?: string }>;
+      externalServices?: Array<{ name: string; purpose: string }>;
+    } | null;
   } | null;
   objectives: Array<{
     id: string;
@@ -157,7 +163,7 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
   if (contextData?.is_grounded) {
     const { data: grounding } = await supabase
       .from("company_grounding")
-      .select("products, entities, intended_customer, constraints, current_state_summary")
+      .select("products, entities, intended_customer, constraints, current_state_summary, technical_context")
       .eq("company_id", role.company_id)
       .eq("status", "confirmed")
       .single();
@@ -169,6 +175,7 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
         intendedCustomer: grounding.intended_customer,
         constraints: grounding.constraints || [],
         currentStateSummary: grounding.current_state_summary,
+        technicalContext: grounding.technical_context || null,
       };
     }
   }
@@ -247,6 +254,13 @@ ${gd.currentStateSummary.knownFacts.map(f => `• ${f}`).join("\n")}
 
 Open Questions:
 ${gd.currentStateSummary.openQuestions.map(q => `? ${q}`).join("\n")}
+` : ""}
+${gd.technicalContext ? `
+CUSTOMER TECHNICAL ARCHITECTURE:
+${gd.technicalContext.databaseTables?.length ? `Database Tables: ${gd.technicalContext.databaseTables.map(t => `${t.name} (${t.description})`).join(", ")}` : ""}
+${gd.technicalContext.apiEndpoints?.length ? `API Endpoints: ${gd.technicalContext.apiEndpoints.map(e => `${e.method} ${e.path}`).join(", ")}` : ""}
+${gd.technicalContext.techStack?.length ? `Tech Stack: ${gd.technicalContext.techStack.map(t => `${t.name}${t.version ? `@${t.version}` : ""}`).join(", ")}` : ""}
+${gd.technicalContext.externalServices?.length ? `External Services: ${gd.technicalContext.externalServices.map(s => `${s.name} (${s.purpose})`).join(", ")}` : ""}
 ` : ""}
 ---`;
   }
