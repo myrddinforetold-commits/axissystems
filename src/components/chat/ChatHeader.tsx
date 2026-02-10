@@ -1,12 +1,13 @@
 import { ArrowLeft, Bot, BrainCircuit, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import AgentStatusBadge from "@/components/roles/AgentStatusBadge";
+import type { MoltbotAgentStatus } from "@/hooks/useMoltbotStatus";
 
 interface ChatHeaderProps {
   roleName: string;
@@ -15,6 +16,8 @@ interface ChatHeaderProps {
   onOpenMemory?: () => void;
   onOpenTasks?: () => void;
   hasActiveTask?: boolean;
+  agentStatus?: MoltbotAgentStatus;
+  lastActive?: string | null;
 }
 
 export default function ChatHeader({ 
@@ -24,6 +27,8 @@ export default function ChatHeader({
   onOpenMemory,
   onOpenTasks,
   hasActiveTask,
+  agentStatus,
+  lastActive,
 }: ChatHeaderProps) {
   return (
     <div className="border-b bg-card px-4 py-3">
@@ -40,7 +45,9 @@ export default function ChatHeader({
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary shrink-0" />
             <h1 className="font-semibold text-foreground truncate">{roleName}</h1>
-            <Badge variant="secondary" className="shrink-0">AI Role</Badge>
+            {agentStatus ? (
+              <AgentStatusBadge status={agentStatus} lastActive={lastActive} />
+            ) : null}
           </div>
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
             {mandate}

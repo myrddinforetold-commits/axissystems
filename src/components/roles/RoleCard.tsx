@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import AgentStatusBadge from '@/components/roles/AgentStatusBadge';
+import { useMoltbotStatus } from '@/hooks/useMoltbotStatus';
 
 interface Role {
   id: string;
@@ -37,6 +39,12 @@ export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps
   const navigate = useNavigate();
   const { id: companyId } = useParams<{ id: string }>();
 
+  const { status: agentStatus, lastActive } = useMoltbotStatus({
+    companyId,
+    roleId: role.id,
+    active: false,
+  });
+
   const isOrchestrator = role.authority_level === 'orchestrator';
 
   const handleOpenChat = () => {
@@ -60,6 +68,7 @@ export default function RoleCard({ role, isOwner, onEditMandate }: RoleCardProps
               )}
             </div>
             <CardTitle className="text-lg">{role.name}</CardTitle>
+            <AgentStatusBadge status={agentStatus} lastActive={lastActive} />
           </div>
           {isOwner && !isOrchestrator && (
             <Button

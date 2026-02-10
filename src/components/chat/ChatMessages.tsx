@@ -2,13 +2,22 @@ import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import ChatMessage from "./ChatMessage";
+import ThinkingIndicator from "./ThinkingIndicator";
+import ToolUsageBadge from "./ToolUsageBadge";
+import MemoryReferenceBadge from "./MemoryReferenceBadge";
 import type { ChatMessage as ChatMessageType } from "@/hooks/useChatStream";
+import type { ActiveTool } from "./ToolUsageBadge";
+import type { MemoryRef } from "./MemoryReferenceBadge";
 
 interface ChatMessagesProps {
   messages: ChatMessageType[];
   isLoading: boolean;
   pinnedMessageIds?: Set<string>;
   onPinToMemory?: (messageId: string, content: string, label: string) => Promise<void>;
+  isThinking?: boolean;
+  activeTools?: ActiveTool[];
+  memoryRefs?: MemoryRef[];
+  roleName?: string;
 }
 
 export default function ChatMessages({ 
@@ -16,6 +25,10 @@ export default function ChatMessages({
   isLoading,
   pinnedMessageIds,
   onPinToMemory,
+  isThinking,
+  activeTools,
+  memoryRefs,
+  roleName,
 }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -83,6 +96,20 @@ export default function ChatMessages({
             }
           />
         ))}
+
+        {/* Tool usage and memory badges during streaming */}
+        {(activeTools && activeTools.length > 0) && (
+          <ToolUsageBadge tools={activeTools} />
+        )}
+        {(memoryRefs && memoryRefs.length > 0) && (
+          <MemoryReferenceBadge refs={memoryRefs} />
+        )}
+
+        {/* Thinking indicator */}
+        {isThinking && roleName && (
+          <ThinkingIndicator roleName={roleName} />
+        )}
+
         <div ref={bottomRef} />
       </div>
     </ScrollArea>

@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { ActiveTool } from "@/components/chat/ToolUsageBadge";
+import type { MemoryRef } from "@/components/chat/MemoryReferenceBadge";
 
 export interface ChatMessage {
   id: string;
@@ -19,6 +21,9 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [activeTools, setActiveTools] = useState<ActiveTool[]>([]);
+  const [memoryRefs, setMemoryRefs] = useState<MemoryRef[]>([]);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   
   const onErrorRef = useRef(onError);
@@ -96,6 +101,9 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+      setIsThinking(true);
+      setActiveTools([]);
+      setMemoryRefs([]);
 
       try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -133,6 +141,7 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
         const decoder = new TextDecoder();
         let assistantContent = "";
         let textBuffer = "";
+        let currentEventType = "";
 
         while (true) {
           const { done, value } = await reader.read();
@@ -147,7 +156,17 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
             textBuffer = textBuffer.slice(newlineIndex + 1);
 
             if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (line.startsWith(":") || line.trim() === "") continue;
+
+            // Track SSE event type
+            if (line.startsWith("event: ")) {
+              currentEventType = line.slice(7).trim();
+              continue;
+            }
+
+            if (line.startsWith(":") || line.trim() === "") {
+              currentEventType = "";
+              continue;
+            }
             if (!line.startsWith("data: ")) continue;
 
             const jsonStr = line.slice(6).trim();
@@ -155,16 +174,62 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
 
             try {
               const parsed = JSON.parse(jsonStr);
-              const deltaContent = parsed.choices?.[0]?.delta?.content;
-              if (deltaContent) {
-                assistantContent += deltaContent;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === aiMessageId
-                      ? { ...msg, content: assistantContent }
-                      : msg
-                  )
-                );
+
+              // Handle Moltbot SSE event types
+              switch (currentEventType) {
+                case "tool_start":
+                  setActiveTools((prev) => [
+                    ...prev,
+                    { tool: parsed.tool, status: "running" },
+                  ]);
+                  currentEventType = "";
+                  continue;
+
+                case "tool_end":
+                  setActiveTools((prev) =>
+                    prev.map((t) =>
+                      t.tool === parsed.tool
+                        ? { ...t, status: "done" as const, resultSummary: parsed.result_summary }
+                        : t
+                    )
+                  );
+                  currentEventType = "";
+                  continue;
+
+                case "memory_ref":
+                  setMemoryRefs((prev) => [
+                    ...prev,
+                    { source: parsed.source, snippet: parsed.snippet },
+                  ]);
+                  currentEventType = "";
+                  continue;
+
+                case "done":
+                  if (parsed.content) {
+                    assistantContent = parsed.content;
+                  }
+                  currentEventType = "";
+                  continue;
+
+                case "delta":
+                default: {
+                  // Handle both Moltbot delta format and existing OpenAI-style format
+                  const deltaContent =
+                    parsed.content || parsed.choices?.[0]?.delta?.content;
+                  if (deltaContent) {
+                    setIsThinking(false);
+                    assistantContent += deltaContent;
+                    setMessages((prev) =>
+                      prev.map((msg) =>
+                        msg.id === aiMessageId
+                          ? { ...msg, content: assistantContent }
+                          : msg
+                      )
+                    );
+                  }
+                  currentEventType = "";
+                  break;
+                }
               }
             } catch {
               // Re-buffer partial JSON
@@ -185,7 +250,8 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
             if (jsonStr === "[DONE]") continue;
             try {
               const parsed = JSON.parse(jsonStr);
-              const deltaContent = parsed.choices?.[0]?.delta?.content;
+              const deltaContent =
+                parsed.content || parsed.choices?.[0]?.delta?.content;
               if (deltaContent) {
                 assistantContent += deltaContent;
               }
@@ -196,6 +262,9 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
         }
 
         // Mark streaming complete
+        setIsThinking(false);
+        setActiveTools([]);
+        setMemoryRefs([]);
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === aiMessageId
@@ -213,6 +282,9 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
 
         // Remove the failed AI message placeholder
         setMessages((prev) => prev.filter((msg) => msg.id !== aiMessageId));
+        setIsThinking(false);
+        setActiveTools([]);
+        setMemoryRefs([]);
       } finally {
         setIsStreaming(false);
       }
@@ -266,6 +338,9 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
     messages,
     isLoading,
     isStreaming,
+    isThinking,
+    activeTools,
+    memoryRefs,
     pinnedMessageIds,
     loadMessages,
     sendMessage,

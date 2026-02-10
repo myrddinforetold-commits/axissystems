@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Circle, Clock, AlertCircle, ListTodo } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Bot, Clock, ListTodo } from 'lucide-react';
+import AgentStatusBadge from '@/components/roles/AgentStatusBadge';
+import { useMoltbotStatus } from '@/hooks/useMoltbotStatus';
 import type { RoleWithStatus } from '@/hooks/useWorkflowRequests';
 
 interface RoleStatusCardProps {
@@ -10,32 +11,14 @@ interface RoleStatusCardProps {
   companyId: string;
 }
 
-const statusConfig = {
-  idle: {
-    label: 'Idle',
-    icon: Circle,
-    className: 'text-muted-foreground',
-    dotClassName: 'bg-muted-foreground',
-  },
-  in_task: {
-    label: 'In Task',
-    icon: ListTodo,
-    className: 'text-primary',
-    dotClassName: 'bg-primary animate-pulse',
-  },
-  awaiting_approval: {
-    label: 'Awaiting',
-    icon: AlertCircle,
-    className: 'text-amber-500',
-    dotClassName: 'bg-amber-500 animate-pulse',
-  },
-};
-
 export default function RoleStatusCard({ role, companyId }: RoleStatusCardProps) {
   const navigate = useNavigate();
-  const status = role.workflow_status as keyof typeof statusConfig;
-  const config = statusConfig[status] || statusConfig.idle;
-  const StatusIcon = config.icon;
+
+  const { status: agentStatus, lastActive } = useMoltbotStatus({
+    companyId,
+    roleId: role.id,
+    active: false,
+  });
 
   const handleClick = () => {
     navigate(`/company/${companyId}/role/${role.id}`);
@@ -56,10 +39,7 @@ export default function RoleStatusCard({ role, companyId }: RoleStatusCardProps)
               <h3 className="font-medium text-foreground truncate">
                 {role.display_name || role.name}
               </h3>
-              <div className={cn('flex items-center gap-1.5 text-xs', config.className)}>
-                <span className={cn('h-2 w-2 rounded-full', config.dotClassName)} />
-                {config.label}
-              </div>
+              <AgentStatusBadge status={agentStatus} lastActive={lastActive} />
             </div>
           </div>
         </div>

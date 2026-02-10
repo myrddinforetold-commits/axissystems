@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useChatStream } from "@/hooks/useChatStream";
+import { useMoltbotStatus } from "@/hooks/useMoltbotStatus";
 import { useTaskExecution } from "@/hooks/useTaskExecution";
 import ChatHeader from "@/components/chat/ChatHeader";
 import ChatMessages from "@/components/chat/ChatMessages";
@@ -75,6 +76,9 @@ export default function RoleChatPage() {
     messages, 
     isLoading, 
     isStreaming, 
+    isThinking,
+    activeTools,
+    memoryRefs,
     pinnedMessageIds,
     loadMessages, 
     sendMessage,
@@ -83,6 +87,12 @@ export default function RoleChatPage() {
     roleId: roleId || "",
     companyId: companyId,
     onError: handleChatError,
+  });
+
+  const { status: agentStatus, lastActive } = useMoltbotStatus({
+    companyId,
+    roleId,
+    active: true,
   });
 
   const {
@@ -367,6 +377,8 @@ export default function RoleChatPage() {
         onOpenMemory={() => setShowMemoryPanel(true)}
         onOpenTasks={() => setShowTaskPanel(true)}
         hasActiveTask={activeTask !== null && (activeTask.status === "running" || activeTask.status === "pending")}
+        agentStatus={agentStatus}
+        lastActive={lastActive}
       />
 
       {/* Inspection Mode Banner */}
@@ -409,6 +421,10 @@ export default function RoleChatPage() {
         isLoading={isLoading}
         pinnedMessageIds={pinnedMessageIds}
         onPinToMemory={handlePinToMemory}
+        isThinking={isThinking}
+        activeTools={activeTools}
+        memoryRefs={memoryRefs}
+        roleName={role.name}
       />
       <ChatInput
         onSend={sendMessage}
