@@ -8,6 +8,8 @@ async function parseMoltbotResponse(response: Response): Promise<any> {
   if (contentType.includes("text/event-stream")) {
     console.log("Parsing SSE stream response...");
     const rawText = await response.text();
+    console.log("SSE raw length:", rawText.length, "first 500:", rawText.substring(0, 500));
+    
     let fullContent = "";
     let resultData: any = null;
     
@@ -23,26 +25,40 @@ async function parseMoltbotResponse(response: Response): Promise<any> {
         try {
           const parsed = JSON.parse(dataStr);
           
-          if (currentEvent === "result" || currentEvent === "complete") {
+          if (currentEvent === "result" || currentEvent === "complete" || currentEvent === "done") {
             resultData = parsed;
-          } else if (currentEvent === "content" || currentEvent === "delta" || !currentEvent) {
-            const delta = parsed.choices?.[0]?.delta?.content || parsed.content || "";
-            fullContent += delta;
+          } else if (currentEvent === "content" || currentEvent === "delta" || currentEvent === "message" || currentEvent === "chunk" || !currentEvent) {
+            // Try multiple possible content locations
+            const delta = parsed.choices?.[0]?.delta?.content 
+              || parsed.choices?.[0]?.message?.content
+              || parsed.delta?.content
+              || parsed.delta
+              || parsed.content 
+              || parsed.text
+              || parsed.chunk
+              || "";
+            if (typeof delta === "string") fullContent += delta;
           }
           
-          // Also check for output field directly
-          if (parsed.output) {
+          // Check for output/response field directly on any event
+          if (parsed.output && typeof parsed.output === "string") {
             fullContent = parsed.output;
           }
+          if (parsed.response && typeof parsed.response === "string" && parsed.response.length > fullContent.length) {
+            fullContent = parsed.response;
+          }
         } catch {
-          // Skip non-JSON data lines
+          // Non-JSON data line - might be raw text content
+          if (currentEvent === "content" || currentEvent === "delta" || currentEvent === "message") {
+            fullContent += dataStr;
+          }
         }
       }
     }
     
-    console.log("SSE parsed content length:", fullContent.length, "resultData:", !!resultData);
+    console.log("SSE parsed content length:", fullContent.length, "resultData:", !!resultData, "first 200:", fullContent.substring(0, 200));
     
-    const finalContent = resultData?.output || resultData?.content || resultData?.result || fullContent;
+    const finalContent = resultData?.output || resultData?.content || resultData?.result || resultData?.response || fullContent;
     
     return {
       output: finalContent,
@@ -441,8 +457,8 @@ ${previousAttemptsContext ? `\n## Learning from Previous Attempts:\nReview the p
 
 This is attempt ${attemptNumber} of ${task.max_attempts}.`;
 
-    // Execute task with AI using dedicated /task endpoint (returns JSON, not SSE)
-    const aiResponse = await fetch(`${moltbotApiUrl}/task`, {
+    // Execute task with AI using /chat endpoint with stream:false for reliable JSON responses
+    const aiResponse = await fetch(`${moltbotApiUrl}/chat`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${moltbotApiKey}`,
@@ -451,8 +467,12 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
       body: JSON.stringify({
         company_id: task.company_id,
         role_id: task.role_id,
-        task: `Title: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nThis is attempt ${attemptNumber} of ${task.max_attempts}.${previousAttemptsContext ? `\n\nPrevious Attempts:\n${previousAttemptsContext}` : ""}`,
-        system_prompt: systemPrompt,
+        message: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nThis is attempt ${attemptNumber} of ${task.max_attempts}.${previousAttemptsContext ? `\n\nPrevious Attempts:\n${previousAttemptsContext}` : ""}`,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Execute this task thoroughly:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}` }
+        ],
+        stream: false,
       }),
     });
 
@@ -480,7 +500,8 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
     }
 
     const aiData = await parseMoltbotResponse(aiResponse);
-    const modelOutput = aiData.output || aiData.choices?.[0]?.message?.content || "";
+    console.log("Task execution response - output length:", (aiData.output || "").length);
+    const modelOutput = aiData.choices?.[0]?.message?.content || aiData.output || aiData.content || "";
 
     if (!modelOutput) {
       return new Response(
@@ -490,7 +511,7 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
     }
 
     // Evaluate the output against completion criteria
-    const evaluationResponse = await fetch(`${moltbotApiUrl}/task`, {
+    const evaluationResponse = await fetch(`${moltbotApiUrl}/chat`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${moltbotApiKey}`,
@@ -499,16 +520,20 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
       body: JSON.stringify({
         company_id: task.company_id,
         role_id: task.role_id,
-        task: `Evaluate whether the following AI output meets the completion criteria.
+        message: `Evaluate whether the following AI output meets the completion criteria.
 
 Task: ${task.title}
 Completion Criteria: ${task.completion_criteria}
 
 AI Output to Evaluate:
-${modelOutput}
+${modelOutput.substring(0, 3000)}
 
 Return ONLY a JSON object: {"result": "pass|fail|unclear", "reason": "brief explanation"}`,
-        system_prompt: `You are a strict evaluator. Determine if an AI output meets completion criteria. Be rigorous but fair. If uncertain, return "unclear". Your entire response must be a valid JSON object with "result" and "reason" fields only.`,
+        messages: [
+          { role: "system", content: `You are a strict evaluator. Determine if an AI output meets completion criteria. Be rigorous but fair. If uncertain, return "unclear". Your entire response must be a valid JSON object with "result" and "reason" fields only.` },
+          { role: "user", content: `Evaluate this output against criteria. Return JSON only.` }
+        ],
+        stream: false,
       }),
     });
 
@@ -517,7 +542,7 @@ Return ONLY a JSON object: {"result": "pass|fail|unclear", "reason": "brief expl
 
     if (evaluationResponse.ok) {
       const evalData = await parseMoltbotResponse(evaluationResponse);
-      const evalContent = evalData.output || evalData.choices?.[0]?.message?.content || "";
+      const evalContent = evalData.choices?.[0]?.message?.content || evalData.output || evalData.content || "";
       
       // Try to parse as JSON first (our requested format)
       try {
