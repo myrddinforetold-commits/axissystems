@@ -480,9 +480,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build autonomous prompt and call AI
-    const prompt = buildAutonomousPrompt(context);
-    
+    // Build context payload and call /autonomous endpoint
     const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
     const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
 
@@ -493,58 +491,75 @@ Deno.serve(async (req) => {
       );
     }
 
-    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat`, {
+    // Build the structured context payload for the autonomous endpoint
+    const autonomousPayload = {
+      company_id: context.role.company_id,
+      role_id: role_id,
+      context: {
+        role: {
+          name: context.role.name,
+          mandate: context.role.mandate,
+          system_prompt: context.role.system_prompt,
+          workflow_status: context.role.workflow_status,
+        },
+        company: {
+          name: context.company.name,
+        },
+        companyStage: context.companyStage,
+        objectives: context.objectives.map(o => ({
+          id: o.id,
+          title: o.title,
+          description: o.description,
+          status: o.status,
+          priority: o.priority,
+        })),
+        grounding: context.groundingData ? {
+          products: context.groundingData.products,
+          entities: context.groundingData.entities,
+          intendedCustomer: context.groundingData.intendedCustomer,
+          constraints: context.groundingData.constraints,
+          currentStateSummary: context.groundingData.currentStateSummary,
+          technicalContext: context.groundingData.technicalContext,
+        } : null,
+        recentMemory: context.recentMemory.map(m => ({
+          content: m.content,
+          label: m.label,
+          created_at: m.created_at,
+        })),
+        recentMessages: context.recentMessages.map(m => ({
+          sender: m.sender,
+          content: m.content,
+          created_at: m.created_at,
+        })),
+        pendingRequests: context.pendingRequests,
+        technicalArchitecture: AXIS_TECHNICAL_CONTEXT,
+      },
+    };
+
+    const aiResponse = await fetch(`${MOLTBOT_API_URL}/autonomous`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${MOLTBOT_API_KEY}`,
       },
-      body: JSON.stringify({
-        company_id: context.role.company_id,
-        role_id: role_id,
-        message: prompt,
-        messages: [
-          { role: "system", content: "You are an autonomous AI role in a company operating system. Respond only with valid JSON." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      }),
+      body: JSON.stringify(autonomousPayload),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", errorText);
+      console.error("Autonomous API error:", errorText);
       return new Response(
-        JSON.stringify({ error: "AI processing failed", details: errorText }),
+        JSON.stringify({ error: "Autonomous processing failed", details: errorText }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
+    // The /autonomous endpoint returns the decision directly as JSON
+    const decision = await aiResponse.json();
 
-    if (!content) {
+    if (!decision || !decision.action) {
       return new Response(
-        JSON.stringify({ error: "No AI response" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Parse AI decision
-    let decision;
-    try {
-      // Extract JSON from response (may have markdown wrapping)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        decision = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      return new Response(
-        JSON.stringify({ error: "Failed to parse AI decision", raw: content }),
+        JSON.stringify({ error: "Invalid autonomous response", raw: decision }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
