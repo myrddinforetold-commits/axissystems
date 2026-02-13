@@ -185,10 +185,12 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
+    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
+    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
+        JSON.stringify({ error: "Moltbot API not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -365,14 +367,14 @@ This allows the system to capture your proposals for review.`;
       console.error("Failed to store user message:", insertUserError);
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${MOLTBOT_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        role_id: role_id,
         messages: aiMessages,
         stream: true,
       }),

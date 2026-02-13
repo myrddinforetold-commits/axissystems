@@ -483,14 +483,24 @@ Deno.serve(async (req) => {
     // Build autonomous prompt and call AI
     const prompt = buildAutonomousPrompt(context);
     
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
+    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
+
+    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Moltbot API not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        "Authorization": `Bearer ${MOLTBOT_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        role_id: role_id,
         messages: [
           { role: "system", content: "You are an autonomous AI role in a company operating system. Respond only with valid JSON." },
           { role: "user", content: prompt },

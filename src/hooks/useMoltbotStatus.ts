@@ -23,7 +23,6 @@ interface UseMoltbotStatusReturn {
 
 const ACTIVE_INTERVAL = 30_000;   // 30 seconds
 const PASSIVE_INTERVAL = 300_000; // 5 minutes
-const BASE_URL = "https://moltbot.axis.systems/api/v1";
 
 export function useMoltbotStatus({
   companyId,
@@ -42,7 +41,7 @@ export function useMoltbotStatus({
     try {
       setIsLoading(true);
       const res = await fetch(
-        `${BASE_URL}/status?company_id=${companyId}&role_id=${roleId}`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/moltbot-status?company_id=${companyId}&role_id=${roleId}`
       );
       if (!res.ok) throw new Error(`Status fetch failed: ${res.status}`);
       const data: MoltbotStatusResponse = await res.json();

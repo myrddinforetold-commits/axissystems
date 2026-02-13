@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.webhook-callback]
 verify_jwt = false
+
+[functions.moltbot-status]
+verify_jwt = false
