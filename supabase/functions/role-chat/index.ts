@@ -408,7 +408,68 @@ This allows the system to capture your proposals for review.`;
       );
     }
 
-    // Create a transform stream to capture the full response
+    const contentType = aiResponse.headers.get("content-type") || "";
+    console.log("Moltbot response content-type:", contentType, "status:", aiResponse.status);
+
+    // Check if response is SSE/streaming or plain JSON
+    const isStreamingResponse = contentType.includes("text/event-stream") || contentType.includes("text/plain");
+
+    if (!isStreamingResponse) {
+      // Non-streaming response: parse as JSON and return as SSE
+      const responseText = await aiResponse.text();
+      console.log("Moltbot non-streaming response preview:", responseText.substring(0, 300));
+      
+      let assistantContent = "";
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        // Handle various response formats
+        assistantContent = jsonResponse.choices?.[0]?.message?.content 
+          || jsonResponse.content 
+          || jsonResponse.response 
+          || jsonResponse.message
+          || (typeof jsonResponse === "string" ? jsonResponse : JSON.stringify(jsonResponse));
+      } catch {
+        // If not JSON, use raw text (but check for HTML)
+        if (responseText.trim().startsWith("<!") || responseText.includes("<html")) {
+          console.error("Moltbot returned HTML instead of JSON");
+          return new Response(
+            JSON.stringify({ error: "AI service returned an error page" }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        assistantContent = responseText;
+      }
+
+      // Store AI response
+      if (assistantContent) {
+        await supabaseService.from("role_messages").insert({
+          role_id: role_id,
+          company_id: role.company_id,
+          sender: "ai",
+          content: assistantContent,
+        });
+
+        // Check for workflow requests
+        const extractedRequests = await extractWorkflowRequests(assistantContent, MOLTBOT_API_URL!, MOLTBOT_API_KEY!, role.company_id, role_id);
+        if (extractedRequests.length > 0) {
+          await createWorkflowRequests(supabaseService, extractedRequests, role_id, role.company_id);
+        }
+      }
+
+      // Convert to SSE format for the frontend
+      const encoder = new TextEncoder();
+      const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content: assistantContent } }] })}\n\ndata: [DONE]\n\n`;
+      
+      return new Response(encoder.encode(sseData), {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
+    // Streaming response: pipe through with content capture
     let fullResponse = "";
     const transformStream = new TransformStream({
       transform(chunk, controller) {
@@ -420,7 +481,7 @@ This allows the system to capture your proposals for review.`;
           if (line.startsWith("data: ") && line !== "data: [DONE]") {
             try {
               const json = JSON.parse(line.slice(6));
-              const content = json.choices?.[0]?.delta?.content;
+              const content = json.choices?.[0]?.delta?.content || json.content;
               if (content) {
                 fullResponse += content;
               }
@@ -447,7 +508,7 @@ This allows the system to capture your proposals for review.`;
         }
         await writer.close();
 
-        // NOW execute DB operations (guaranteed to run before function terminates)
+        // NOW execute DB operations
         if (fullResponse) {
           console.log("Storing AI response, length:", fullResponse.length);
           
@@ -464,20 +525,12 @@ This allows the system to capture your proposals for review.`;
             console.error("Failed to store AI message:", insertError);
           }
 
-          // Extract and create workflow requests from the AI response
           console.log("Checking for workflow requests in response...");
           const extractedRequests = await extractWorkflowRequests(fullResponse, MOLTBOT_API_URL!, MOLTBOT_API_KEY!, role.company_id, role_id);
           
           if (extractedRequests.length > 0) {
-            console.log(`Extracted ${extractedRequests.length} workflow request(s):`, extractedRequests);
-            await createWorkflowRequests(
-              supabaseService,
-              extractedRequests,
-              role_id,
-              role.company_id
-            );
-          } else {
-            console.log("No workflow requests found in response");
+            console.log(`Extracted ${extractedRequests.length} workflow request(s)`);
+            await createWorkflowRequests(supabaseService, extractedRequests, role_id, role.company_id);
           }
         }
       } catch (error) {
@@ -485,7 +538,6 @@ This allows the system to capture your proposals for review.`;
       }
     };
 
-    // Start the background processing
     pipeAndProcess();
 
     return new Response(transformStream.readable, {
