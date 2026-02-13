@@ -1,6 +1,68 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Helper: parse Moltbot response regardless of JSON or SSE stream format
+async function parseMoltbotResponse(response: Response): Promise<any> {
+  const contentType = response.headers.get("content-type") || "";
+  
+  if (contentType.includes("text/event-stream")) {
+    console.log("Parsing SSE stream response...");
+    const rawText = await response.text();
+    let fullContent = "";
+    let resultData: any = null;
+    
+    const lines = rawText.split("\n");
+    let currentEvent = "";
+    
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const dataStr = line.slice(6).trim();
+        if (dataStr === "[DONE]") break;
+        try {
+          const parsed = JSON.parse(dataStr);
+          
+          if (currentEvent === "result" || currentEvent === "complete") {
+            resultData = parsed;
+          } else if (currentEvent === "content" || currentEvent === "delta" || !currentEvent) {
+            const delta = parsed.choices?.[0]?.delta?.content || parsed.content || "";
+            fullContent += delta;
+          }
+          
+          // Also check for output field directly
+          if (parsed.output) {
+            fullContent = parsed.output;
+          }
+        } catch {
+          // Skip non-JSON data lines
+        }
+      }
+    }
+    
+    console.log("SSE parsed content length:", fullContent.length, "resultData:", !!resultData);
+    
+    const finalContent = resultData?.output || resultData?.content || resultData?.result || fullContent;
+    
+    return {
+      output: finalContent,
+      choices: [{
+        message: {
+          content: finalContent,
+          tool_calls: resultData?.tool_calls || undefined,
+        }
+      }]
+    };
+  }
+  
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { output: text, choices: [{ message: { content: text } }] };
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -379,8 +441,8 @@ ${previousAttemptsContext ? `\n## Learning from Previous Attempts:\nReview the p
 
 This is attempt ${attemptNumber} of ${task.max_attempts}.`;
 
-    // Execute task with AI
-    const aiResponse = await fetch(`${moltbotApiUrl}/chat`, {
+    // Execute task with AI using dedicated /task endpoint (returns JSON, not SSE)
+    const aiResponse = await fetch(`${moltbotApiUrl}/task`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${moltbotApiKey}`,
@@ -389,18 +451,14 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
       body: JSON.stringify({
         company_id: task.company_id,
         role_id: task.role_id,
-        message: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nProvide your complete output now.`,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nProvide your complete output now.` }
-        ],
-        stream: false,
+        task: `Title: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nThis is attempt ${attemptNumber} of ${task.max_attempts}.${previousAttemptsContext ? `\n\nPrevious Attempts:\n${previousAttemptsContext}` : ""}`,
+        system_prompt: systemPrompt,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errorText);
+      console.error("AI task endpoint error:", aiResponse.status, errorText);
       
       if (aiResponse.status === 429) {
         return new Response(
@@ -421,8 +479,8 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
       );
     }
 
-    const aiData = await aiResponse.json();
-    const modelOutput = aiData.choices?.[0]?.message?.content || "";
+    const aiData = await parseMoltbotResponse(aiResponse);
+    const modelOutput = aiData.output || aiData.choices?.[0]?.message?.content || "";
 
     if (!modelOutput) {
       return new Response(
@@ -432,7 +490,7 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
     }
 
     // Evaluate the output against completion criteria
-    const evaluationResponse = await fetch(`${moltbotApiUrl}/chat`, {
+    const evaluationResponse = await fetch(`${moltbotApiUrl}/task`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${moltbotApiKey}`,
@@ -441,61 +499,16 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
       body: JSON.stringify({
         company_id: task.company_id,
         role_id: task.role_id,
-        message: `Evaluate this task output against criteria.`,
-        messages: [
-          { 
-            role: "system", 
-            content: `You are a strict evaluator. Your job is to determine if an AI output meets the specified completion criteria.
+        task: `Evaluate whether the following AI output meets the completion criteria.
 
-Be rigorous but fair. Consider:
-- Does the output directly address what was asked?
-- Are all criteria points satisfied?
-- Is the output complete and actionable?
+Task: ${task.title}
+Completion Criteria: ${task.completion_criteria}
 
-If you are uncertain whether the criteria are met, return "unclear".
-Never assume success without confidence.` 
-          },
-          { 
-            role: "user", 
-            content: `## Task Title:
-${task.title}
-
-## Task Description:
-${task.description}
-
-## Completion Criteria:
-${task.completion_criteria}
-
-## AI Output to Evaluate:
+AI Output to Evaluate:
 ${modelOutput}
 
-Evaluate whether this output meets the completion criteria.` 
-          }
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "evaluate_completion",
-            description: "Evaluate whether the AI output meets the task completion criteria",
-            parameters: {
-              type: "object",
-              properties: {
-                result: { 
-                  type: "string", 
-                  enum: ["pass", "fail", "unclear"],
-                  description: "pass: criteria clearly met. fail: criteria clearly not met. unclear: cannot determine with confidence."
-                },
-                reason: { 
-                  type: "string",
-                  description: "Brief explanation of the evaluation decision"
-                }
-              },
-              required: ["result", "reason"],
-              additionalProperties: false
-            }
-          }
-        }],
-        tool_choice: { type: "function", function: { name: "evaluate_completion" } }
+Return ONLY a JSON object: {"result": "pass|fail|unclear", "reason": "brief explanation"}`,
+        system_prompt: `You are a strict evaluator. Determine if an AI output meets completion criteria. Be rigorous but fair. If uncertain, return "unclear". Your entire response must be a valid JSON object with "result" and "reason" fields only.`,
       }),
     });
 
@@ -503,16 +516,32 @@ Evaluate whether this output meets the completion criteria.`
     let evaluationReason = "Evaluation failed";
 
     if (evaluationResponse.ok) {
-      const evalData = await evaluationResponse.json();
-      const toolCall = evalData.choices?.[0]?.message?.tool_calls?.[0];
+      const evalData = await parseMoltbotResponse(evaluationResponse);
+      const evalContent = evalData.output || evalData.choices?.[0]?.message?.content || "";
       
-      if (toolCall?.function?.arguments) {
-        try {
-          const args = JSON.parse(toolCall.function.arguments);
+      // Try to parse as JSON first (our requested format)
+      try {
+        const jsonMatch = evalContent.match(/\{[\s\S]*"result"[\s\S]*\}/);
+        if (jsonMatch) {
+          const args = JSON.parse(jsonMatch[0]);
           evaluationResult = args.result || "unclear";
           evaluationReason = args.reason || "No reason provided";
-        } catch (e) {
-          console.error("Failed to parse evaluation:", e);
+        }
+      } catch (e) {
+        console.error("Failed to parse evaluation JSON:", e);
+      }
+      
+      // Fallback: check for tool_calls format
+      if (evaluationResult === "unclear" && evaluationReason === "Evaluation failed") {
+        const toolCall = evalData.choices?.[0]?.message?.tool_calls?.[0];
+        if (toolCall?.function?.arguments) {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            evaluationResult = args.result || "unclear";
+            evaluationReason = args.reason || "No reason provided";
+          } catch (e) {
+            console.error("Failed to parse tool call evaluation:", e);
+          }
         }
       }
     } else {
