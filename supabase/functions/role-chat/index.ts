@@ -193,6 +193,13 @@ serve(async (req) => {
     const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
     const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
 
+    console.log("MOLTBOT config:", { 
+      url: MOLTBOT_API_URL, 
+      keyLength: MOLTBOT_API_KEY?.length, 
+      keyPrefix: MOLTBOT_API_KEY?.substring(0, 5),
+      keySuffix: MOLTBOT_API_KEY?.substring((MOLTBOT_API_KEY?.length || 0) - 4)
+    });
+
     if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
       return new Response(
         JSON.stringify({ error: "Moltbot API not configured" }),
