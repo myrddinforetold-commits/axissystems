@@ -59,6 +59,16 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
+    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
+
+    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
+      return new Response(JSON.stringify({ error: "Moltbot API not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Fetch the CoS role and verify it's an orchestrator
     const { data: role, error: roleError } = await supabaseService
       .from("roles")
@@ -204,14 +214,16 @@ Date Range: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}
 ${reportInstructions[report_type]}`;
 
     // Call AI to generate report
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        Authorization: `Bearer ${MOLTBOT_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        company_id: role.company_id,
+        role_id: role_id,
+        message: `Based on the following organizational data, generate the requested report:\n${contextSections || "No data available for this period."}`,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Based on the following organizational data, generate the requested report:\n${contextSections || "No data available for this period."}` },

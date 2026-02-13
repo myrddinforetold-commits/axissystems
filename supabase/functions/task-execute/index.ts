@@ -380,14 +380,16 @@ ${previousAttemptsContext ? `\n## Learning from Previous Attempts:\nReview the p
 This is attempt ${attemptNumber} of ${task.max_attempts}.`;
 
     // Execute task with AI
-    const aiResponse = await fetch(`${moltbotApiUrl}/chat/completions`, {
+    const aiResponse = await fetch(`${moltbotApiUrl}/chat`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${moltbotApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        company_id: task.company_id,
         role_id: task.role_id,
+        message: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nProvide your complete output now.`,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nProvide your complete output now.` }
@@ -430,14 +432,16 @@ This is attempt ${attemptNumber} of ${task.max_attempts}.`;
     }
 
     // Evaluate the output against completion criteria
-    const evaluationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const evaluationResponse = await fetch(`${moltbotApiUrl}/chat`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
+        Authorization: `Bearer ${moltbotApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        company_id: task.company_id,
+        role_id: task.role_id,
+        message: `Evaluate this task output against criteria.`,
         messages: [
           { 
             role: "system", 
@@ -570,14 +574,16 @@ Evaluate whether this output meets the completion criteria.`
       newStatus = "completed";
       
       // Generate completion summary
-      const summaryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const summaryResponse = await fetch(`${moltbotApiUrl}/chat`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
+          Authorization: `Bearer ${moltbotApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          company_id: task.company_id,
+          role_id: task.role_id,
+          message: `Summarize this task completion: ${task.title}`,
           messages: [
             { 
               role: "system", 
@@ -599,14 +605,16 @@ Evaluate whether this output meets the completion criteria.`
 
       // Ask AI if there are follow-up suggestions (memos or next tasks)
       try {
-        const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const followUpResponse = await fetch(`${moltbotApiUrl}/chat`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${lovableApiKey}`,
+            Authorization: `Bearer ${moltbotApiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            company_id: task.company_id,
+            role_id: task.role_id,
+            message: `Analyze follow-up actions for completed task: ${task.title}`,
             messages: [
               { 
                 role: "system", 
