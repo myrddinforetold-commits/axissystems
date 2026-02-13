@@ -16,7 +16,10 @@ interface ExtractedWorkflowRequest {
 // Extract workflow requests from AI response using AI parsing
 async function extractWorkflowRequests(
   content: string,
-  apiKey: string
+  moltbotApiUrl: string,
+  moltbotApiKey: string,
+  companyId: string,
+  roleId: string
 ): Promise<ExtractedWorkflowRequest[]> {
   try {
     // Check if the content seems to contain workflow-related content
@@ -25,14 +28,16 @@ async function extractWorkflowRequests(
       return [];
     }
 
-    const parseResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const parseResponse = await fetch(`${moltbotApiUrl}/chat`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${moltbotApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        company_id: companyId,
+        role_id: roleId,
+        message: content,
         messages: [
           {
             role: "system",
@@ -367,14 +372,16 @@ This allows the system to capture your proposals for review.`;
       console.error("Failed to store user message:", insertUserError);
     }
 
-    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat/completions`, {
+    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${MOLTBOT_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        company_id: role.company_id,
         role_id: role_id,
+        message: message,
         messages: aiMessages,
         stream: true,
       }),
@@ -459,7 +466,7 @@ This allows the system to capture your proposals for review.`;
 
           // Extract and create workflow requests from the AI response
           console.log("Checking for workflow requests in response...");
-          const extractedRequests = await extractWorkflowRequests(fullResponse, LOVABLE_API_KEY!);
+          const extractedRequests = await extractWorkflowRequests(fullResponse, MOLTBOT_API_URL!, MOLTBOT_API_KEY!, role.company_id, role_id);
           
           if (extractedRequests.length > 0) {
             console.log(`Extracted ${extractedRequests.length} workflow request(s):`, extractedRequests);

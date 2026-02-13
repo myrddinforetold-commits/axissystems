@@ -43,20 +43,32 @@ Deno.serve(async (req) => {
 
     const data = grounding_data as GroundingData;
 
+    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
+    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
+
+    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
+      return new Response(JSON.stringify({ error: "Moltbot API not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Build the analysis prompt
     const prompt = buildAnalysisPrompt(data, company_stage);
 
-    // Call AI gateway
+    // Call Moltbot API
     const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      `${MOLTBOT_API_URL}/chat`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+          Authorization: `Bearer ${MOLTBOT_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          company_id: company_id,
+          role_id: "grounding-analyst",
+          message: prompt,
           messages: [
             {
               role: "system",

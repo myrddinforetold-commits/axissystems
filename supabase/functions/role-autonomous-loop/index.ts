@@ -493,14 +493,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat/completions`, {
+    const aiResponse = await fetch(`${MOLTBOT_API_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${MOLTBOT_API_KEY}`,
       },
       body: JSON.stringify({
+        company_id: context.role.company_id,
         role_id: role_id,
+        message: prompt,
         messages: [
           { role: "system", content: "You are an autonomous AI role in a company operating system. Respond only with valid JSON." },
           { role: "user", content: prompt },
