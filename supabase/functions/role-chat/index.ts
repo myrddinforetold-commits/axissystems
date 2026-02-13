@@ -471,17 +471,34 @@ This allows the system to capture your proposals for review.`;
 
     // Streaming response: pipe through with content capture
     let fullResponse = "";
+    let chunkBuffer = "";
     const transformStream = new TransformStream({
       transform(chunk, controller) {
         const text = new TextDecoder().decode(chunk);
+        chunkBuffer += text;
+        
+        // Log first chunk for debugging
+        if (fullResponse === "" && chunkBuffer.length < 500) {
+          console.log("First stream chunk:", JSON.stringify(text.substring(0, 200)));
+        }
         
         // Parse SSE data to extract content
-        const lines = text.split("\n");
+        const lines = chunkBuffer.split("\n");
+        // Keep last potentially incomplete line in buffer
+        chunkBuffer = lines.pop() || "";
+        
         for (const line of lines) {
-          if (line.startsWith("data: ") && line !== "data: [DONE]") {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data: ") && trimmed !== "data: [DONE]") {
             try {
-              const json = JSON.parse(line.slice(6));
-              const content = json.choices?.[0]?.delta?.content || json.content;
+              const json = JSON.parse(trimmed.slice(6));
+              // Handle multiple response formats:
+              // OpenAI-style: choices[0].delta.content
+              // Moltbot event-style: { content: "..." } or { status: "thinking" }
+              const content = json.choices?.[0]?.delta?.content 
+                || json.choices?.[0]?.message?.content
+                || (typeof json.content === "string" ? json.content : null)
+                || (typeof json.response === "string" ? json.response : null);
               if (content) {
                 fullResponse += content;
               }
@@ -535,6 +552,16 @@ This allows the system to capture your proposals for review.`;
         }
       } catch (error) {
         console.error("Pipe and process error:", error);
+        // On stream error, send an error event to the client so it doesn't hang
+        try {
+          const encoder = new TextEncoder();
+          const errorEvent = `event: error\ndata: ${JSON.stringify({ error: "Connection to AI service was interrupted. Please try again." })}\n\n`;
+          await writer.write(encoder.encode(errorEvent));
+          await writer.close();
+        } catch {
+          // Writer may already be closed
+          try { await writer.close(); } catch { /* ignore */ }
+        }
       }
     };
 
