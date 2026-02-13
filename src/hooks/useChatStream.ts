@@ -113,6 +113,10 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
           throw new Error("Not authenticated");
         }
 
+        // Add a timeout for the entire stream (90 seconds)
+        const controller = new AbortController();
+        const streamTimeout = setTimeout(() => controller.abort(), 90000);
+
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/role-chat`,
           {
@@ -125,15 +129,18 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
               role_id: roleId,
               message: content.trim(),
             }),
+            signal: controller.signal,
           }
         );
 
         if (!response.ok) {
+          clearTimeout(streamTimeout);
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || `Request failed: ${response.status}`);
         }
 
         if (!response.body) {
+          clearTimeout(streamTimeout);
           throw new Error("No response body");
         }
 
@@ -142,99 +149,144 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
         let assistantContent = "";
         let textBuffer = "";
         let currentEventType = "";
+        let lastChunkTime = Date.now();
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        // Inactivity timeout: if no chunks arrive for 30s, abort
+        const inactivityCheck = setInterval(() => {
+          if (Date.now() - lastChunkTime > 30000) {
+            controller.abort();
+          }
+        }, 5000);
 
-          textBuffer += decoder.decode(value, { stream: true });
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          // Process line-by-line
-          let newlineIndex: number;
-          while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-            let line = textBuffer.slice(0, newlineIndex);
-            textBuffer = textBuffer.slice(newlineIndex + 1);
+            lastChunkTime = Date.now();
+            textBuffer += decoder.decode(value, { stream: true });
 
-            if (line.endsWith("\r")) line = line.slice(0, -1);
+            // Process line-by-line
+            let newlineIndex: number;
+            while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+              let line = textBuffer.slice(0, newlineIndex);
+              textBuffer = textBuffer.slice(newlineIndex + 1);
 
-            // Track SSE event type
-            if (line.startsWith("event: ")) {
-              currentEventType = line.slice(7).trim();
-              continue;
-            }
+              if (line.endsWith("\r")) line = line.slice(0, -1);
 
-            if (line.startsWith(":") || line.trim() === "") {
-              currentEventType = "";
-              continue;
-            }
-            if (!line.startsWith("data: ")) continue;
+              // Track SSE event type
+              if (line.startsWith("event: ")) {
+                currentEventType = line.slice(7).trim();
+                continue;
+              }
 
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") break;
+              if (line.startsWith(":") || line.trim() === "") {
+                currentEventType = "";
+                continue;
+              }
+              if (!line.startsWith("data: ")) continue;
 
-            try {
-              const parsed = JSON.parse(jsonStr);
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") break;
 
-              // Handle Moltbot SSE event types
-              switch (currentEventType) {
-                case "tool_start":
-                  setActiveTools((prev) => [
-                    ...prev,
-                    { tool: parsed.tool, status: "running" },
-                  ]);
-                  currentEventType = "";
-                  continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
 
-                case "tool_end":
-                  setActiveTools((prev) =>
-                    prev.map((t) =>
-                      t.tool === parsed.tool
-                        ? { ...t, status: "done" as const, resultSummary: parsed.result_summary }
-                        : t
-                    )
-                  );
-                  currentEventType = "";
-                  continue;
+                // Handle error events from the edge function
+                if (currentEventType === "error") {
+                  throw new Error(parsed.error || "Stream error from AI service");
+                }
 
-                case "memory_ref":
-                  setMemoryRefs((prev) => [
-                    ...prev,
-                    { source: parsed.source, snippet: parsed.snippet },
-                  ]);
-                  currentEventType = "";
-                  continue;
+                // Handle Moltbot SSE event types
+                switch (currentEventType) {
+                  case "tool_start":
+                    setActiveTools((prev) => [
+                      ...prev,
+                      { tool: parsed.tool, status: "running" },
+                    ]);
+                    currentEventType = "";
+                    continue;
 
-                case "done":
-                  if (parsed.content) {
-                    assistantContent = parsed.content;
-                  }
-                  currentEventType = "";
-                  continue;
-
-                case "delta":
-                default: {
-                  // Handle both Moltbot delta format and existing OpenAI-style format
-                  const deltaContent =
-                    parsed.content || parsed.choices?.[0]?.delta?.content;
-                  if (deltaContent) {
-                    setIsThinking(false);
-                    assistantContent += deltaContent;
-                    setMessages((prev) =>
-                      prev.map((msg) =>
-                        msg.id === aiMessageId
-                          ? { ...msg, content: assistantContent }
-                          : msg
+                  case "tool_end":
+                    setActiveTools((prev) =>
+                      prev.map((t) =>
+                        t.tool === parsed.tool
+                          ? { ...t, status: "done" as const, resultSummary: parsed.result_summary }
+                          : t
                       )
                     );
+                    currentEventType = "";
+                    continue;
+
+                  case "memory_ref":
+                    setMemoryRefs((prev) => [
+                      ...prev,
+                      { source: parsed.source, snippet: parsed.snippet },
+                    ]);
+                    currentEventType = "";
+                    continue;
+
+                  case "done":
+                    if (parsed.content) {
+                      assistantContent = parsed.content;
+                    }
+                    currentEventType = "";
+                    continue;
+
+                  case "delta":
+                  default: {
+                    // Handle both Moltbot delta format and existing OpenAI-style format
+                    const deltaContent =
+                      parsed.content || parsed.choices?.[0]?.delta?.content;
+                    if (deltaContent) {
+                      setIsThinking(false);
+                      assistantContent += deltaContent;
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === aiMessageId
+                            ? { ...msg, content: assistantContent }
+                            : msg
+                        )
+                      );
+                    }
+                    currentEventType = "";
+                    break;
                   }
-                  currentEventType = "";
-                  break;
                 }
+              } catch (e) {
+                // If it's a thrown error (not parse error), re-throw
+                if (e instanceof Error && e.message.includes("Stream error")) {
+                  throw e;
+                }
+                // Re-buffer partial JSON
+                textBuffer = line + "\n" + textBuffer;
+                break;
+              }
+            }
+          }
+        } finally {
+          clearTimeout(streamTimeout);
+          clearInterval(inactivityCheck);
+        }
+
+        // Final flush
+        if (textBuffer.trim()) {
+          for (let raw of textBuffer.split("\n")) {
+            if (!raw) continue;
+            if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+            if (raw.startsWith(":") || raw.trim() === "") continue;
+            if (!raw.startsWith("data: ")) continue;
+            const jsonStr = raw.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const deltaContent =
+                parsed.content || parsed.choices?.[0]?.delta?.content;
+              if (deltaContent) {
+                assistantContent += deltaContent;
               }
             } catch {
-              // Re-buffer partial JSON
-              textBuffer = line + "\n" + textBuffer;
-              break;
+              /* ignore */
             }
           }
         }
@@ -277,7 +329,14 @@ export function useChatStream({ roleId, companyId, onError }: UseChatStreamOptio
         setTimeout(() => loadMessages(), 500);
       } catch (err) {
         console.error("Chat error:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to send message";
+        let errorMessage = "Failed to send message";
+        if (err instanceof Error) {
+          if (err.name === "AbortError") {
+            errorMessage = "AI response timed out. The AI service may be busy — please try again.";
+          } else {
+            errorMessage = err.message;
+          }
+        }
         onErrorRef.current?.(errorMessage);
 
         // Remove the failed AI message placeholder
