@@ -131,7 +131,10 @@ Deno.serve(async (req: Request) => {
         }
 
         try {
-          const scrapeRes = await fetch(`${MOLTBOT_API_URL}/scrape`, {
+          const scrapeEndpoint = `${MOLTBOT_API_URL}/scrape`;
+          console.log("Scraping URL:", url, "via", scrapeEndpoint);
+          
+          const scrapeRes = await fetch(scrapeEndpoint, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${MOLTBOT_API_KEY}`,
@@ -140,17 +143,23 @@ Deno.serve(async (req: Request) => {
             body: JSON.stringify({ url }),
           });
 
+          console.log("Scrape response status:", scrapeRes.status, scrapeRes.statusText);
+          const scrapeText = await scrapeRes.text();
+          console.log("Scrape response body (first 500):", scrapeText.substring(0, 500));
+
           if (!scrapeRes.ok) {
             response = {
               reply:
-                "Hmm, I couldn't fetch that URL. Could you try another link, or type **skip** to describe your company manually?",
+                `I couldn't fetch that URL (status ${scrapeRes.status}). Could you try another link, or type **skip** to describe your company manually?`,
               state: "ask_url",
               context,
             };
             break;
           }
+          
+          const scrapeData = JSON.parse(scrapeText);
 
-          const scrapeData = await scrapeRes.json();
+          // scrapeData already parsed above
           const extracted = scrapeData.extracted || {};
 
           // Build a summary of what was found
