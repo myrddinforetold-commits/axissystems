@@ -146,7 +146,7 @@ export default function ObjectiveProgressCard({ companyId }: ObjectiveProgressCa
               <div
                 key={group.role_id}
                 className="rounded-lg border p-3 hover:bg-muted/50 cursor-pointer transition-colors"
-                onClick={() => navigate(`/companies/${companyId}/roles/${group.role_id}`)}
+                onClick={() => navigate(`/companies/${companyId}/roles/${group.role_id}/chat`)}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
