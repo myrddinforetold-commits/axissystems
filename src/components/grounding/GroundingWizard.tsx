@@ -157,6 +157,14 @@ export default function GroundingWizard({
 
       if (contextError) throw contextError;
 
+      // Provision Moltbot agents (fire-and-forget, don't block onboarding)
+      supabase.functions.invoke("moltbot-provision", {
+        body: { company_id: companyId },
+      }).then(({ error }) => {
+        if (error) console.error("Moltbot provision failed:", error);
+        else console.log("Moltbot agents provisioned successfully");
+      });
+
       toast.success("Grounding complete! Your team is ready to work.");
       onComplete();
     } catch (error: any) {

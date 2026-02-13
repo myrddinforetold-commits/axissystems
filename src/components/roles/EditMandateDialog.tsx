@@ -76,6 +76,20 @@ export default function EditMandateDialog({
 
       if (error) throw error;
 
+      // Sync mandate change to Moltbot (fire-and-forget)
+      // We need company_id from the role — fetch it
+      const { data: roleData } = await supabase
+        .from('roles')
+        .select('company_id')
+        .eq('id', role.id)
+        .single();
+
+      if (roleData?.company_id) {
+        supabase.functions.invoke('moltbot-provision', {
+          body: { company_id: roleData.company_id },
+        }).catch((err) => console.error('Moltbot provision sync failed:', err));
+      }
+
       toast.success('Mandate updated successfully');
       onOpenChange(false);
       onMandateUpdated();
