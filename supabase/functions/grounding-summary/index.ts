@@ -105,8 +105,32 @@ Return ONLY the JSON, no markdown or explanation.`,
       throw new Error("Failed to generate summary from AI");
     }
 
-    const aiResult = await aiResponse.json();
-    const content = aiResult.choices?.[0]?.message?.content;
+    // Handle both JSON and SSE stream responses
+    const contentType = aiResponse.headers.get("content-type") || "";
+    let content: string | undefined;
+
+    if (contentType.includes("text/event-stream")) {
+      // Parse SSE stream to extract content
+      const rawText = await aiResponse.text();
+      const chunks: string[] = [];
+      for (const line of rawText.split("\n")) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) chunks.push(delta);
+          } catch {
+            // skip unparseable lines
+          }
+        }
+      }
+      content = chunks.join("");
+    } else {
+      const aiResult = await aiResponse.json();
+      content = aiResult.choices?.[0]?.message?.content;
+    }
 
     if (!content) {
       throw new Error("No content in AI response");
