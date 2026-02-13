@@ -135,10 +135,12 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const moltbotApiUrl = Deno.env.get("MOLTBOT_API_URL");
+    const moltbotApiKey = Deno.env.get("MOLTBOT_API_KEY");
 
-    if (!lovableApiKey) {
+    if (!moltbotApiUrl || !moltbotApiKey) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
+        JSON.stringify({ error: "Moltbot API not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -378,14 +380,14 @@ ${previousAttemptsContext ? `\n## Learning from Previous Attempts:\nReview the p
 This is attempt ${attemptNumber} of ${task.max_attempts}.`;
 
     // Execute task with AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(`${moltbotApiUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
+        Authorization: `Bearer ${moltbotApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        role_id: task.role_id,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Execute the following task:\n\nTitle: ${task.title}\n\nDescription: ${task.description}\n\nCompletion Criteria:\n${task.completion_criteria}\n\nProvide your complete output now.` }
