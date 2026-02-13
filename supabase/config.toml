@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.moltbot-status]
 verify_jwt = false
+
+[functions.moltbot-provision]
+verify_jwt = false

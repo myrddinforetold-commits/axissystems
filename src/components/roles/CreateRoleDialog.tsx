@@ -88,6 +88,11 @@ export default function CreateRoleDialog({
 
       if (error) throw error;
 
+      // Sync new role to Moltbot (fire-and-forget)
+      supabase.functions.invoke('moltbot-provision', {
+        body: { company_id: companyId },
+      }).catch((err) => console.error('Moltbot provision sync failed:', err));
+
       toast.success('Role created successfully');
       form.reset();
       onOpenChange(false);
