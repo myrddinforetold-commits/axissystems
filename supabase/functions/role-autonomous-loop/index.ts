@@ -5,78 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Technical architecture context for roles to understand what exists
-const AXIS_TECHNICAL_CONTEXT = `
-## Axis Systems Technical Architecture (Current State)
-
-### Database Schema (PostgreSQL)
-Tables that ALREADY EXIST (do not propose creating these):
-- roles: AI role definitions with mandates, system prompts, authority levels (observer/advisor/operator/executive/orchestrator)
-- tasks: Assigned work items with completion criteria, attempt tracking, max 3 retries
-- task_attempts: Execution history with AI outputs and pass/fail/unclear evaluations
-- workflow_requests: Human-in-the-loop approval queue (start_task, send_memo, continue_task, suggest_next_task)
-- role_memos: Inter-role communications (from_role_id → to_role_id with content)
-- company_memory: Shared organizational knowledge pinned by users (company-wide visibility)
-- role_memory: Private role-specific learnings (role-scoped visibility)
-- role_objectives: Current goals for each role with priority and status
-- role_messages: Chat history between humans and roles
-- company_grounding: Business context, products, entities, constraints, aspirations
-- company_context: Company stage (early/growth/established) and grounding status
-- profiles: User display names and avatars
-- company_members: User-company associations with roles (owner/member)
-- cos_reports: Chief of Staff generated reports
-
-### Backend Functions (Deployed)
-Functions that ALREADY EXIST:
-- role-chat: Handles human-role conversations with streaming responses
-- role-autonomous-loop: This function - Observe-Decide-Propose cycle
-- task-execute: Runs tasks with AI, evaluates output, handles retries
-- workflow-approve: Processes approval/denial of workflow requests
-- grounding-summary: Generates AI summary of grounding data
-- cos-summary: Chief of Staff reporting and analysis
-
-### Frontend (React/TypeScript/Tailwind)
-UI that ALREADY EXISTS:
-- Role chat interface with streaming AI responses
-- Workflow dashboard for approving/denying requests
-- Task panel with execution monitoring
-- Company memory panel for pinning knowledge
-- Grounding wizard for company onboarding
-- Role activation wizard with objective setting
-- CoS (Chief of Staff) reporting interface
-
-### External Integrations: NONE AVAILABLE
-The system currently has NO external integrations:
-- ❌ No email sending (cannot send emails to real people)
-- ❌ No CRM access (no Salesforce, HubSpot, etc.)
-- ❌ No analytics platforms (no Mixpanel, Amplitude, etc.)
-- ❌ No external APIs or webhooks
-- ❌ No calendar/scheduling integrations
-- ❌ No Slack/Teams messaging
-- ❌ No social media posting
-- ❌ No code deployment capabilities
-
-### What Roles CAN Do Within This System:
-- Create documents, specifications, research, and analysis
-- Send memos to other roles (internal communication only)
-- Propose tasks that produce written deliverables
-- Access and reference grounding data and company memory
-- Mark objectives as complete when criteria are met
-
-### PRODUCT & BUILDER ROLES - Additional Capabilities:
-Product and Builder roles CAN propose development tasks that Lovable can implement:
-- UI/UX improvements: New pages, components, layouts, styling changes
-- Database changes: New tables, columns, indexes, RLS policies
-- Edge function updates: New functions, modifications to existing ones
-- Feature implementations: Complete features with frontend + backend specifications
-
-Development tasks should include:
-- Clear description of what to build
-- Which files/tables/functions are affected
-- Acceptance criteria that can be verified
-- Reference to existing architecture (use actual table/component names)
-`;
-
+const AXIS_API_URL = Deno.env.get("AXIS_API_URL");
+const AXIS_API_SECRET = Deno.env.get("AXIS_API_SECRET");
 
 interface RoleContext {
   role: {
@@ -94,23 +24,7 @@ interface RoleContext {
   };
   companyStage: string | null;
   isGrounded: boolean;
-  groundingData: {
-    products: Array<{ name: string; description: string }>;
-    entities: Array<{ name: string; type: string }>;
-    intendedCustomer: string | null;
-    constraints: Array<{ type: string; description: string }>;
-    currentStateSummary: {
-      knownFacts: string[];
-      assumptions: string[];
-      openQuestions: string[];
-    } | null;
-    technicalContext: {
-      databaseTables?: Array<{ name: string; description: string; keyColumns?: string }>;
-      apiEndpoints?: Array<{ method: string; path: string; description: string }>;
-      techStack?: Array<{ category: string; name: string; version?: string }>;
-      externalServices?: Array<{ name: string; purpose: string }>;
-    } | null;
-  } | null;
+  groundingData: any;
   objectives: Array<{
     id: string;
     title: string;
@@ -132,7 +46,6 @@ interface RoleContext {
 }
 
 async function gatherContext(supabase: any, roleId: string): Promise<RoleContext | null> {
-  // Fetch role
   const { data: role, error: roleError } = await supabase
     .from("roles")
     .select("id, name, mandate, system_prompt, workflow_status, company_id, is_activated")
@@ -144,21 +57,18 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
     return null;
   }
 
-  // Fetch company
   const { data: company } = await supabase
     .from("companies")
     .select("id, name")
     .eq("id", role.company_id)
     .single();
 
-  // Fetch company context (stage + grounding status)
   const { data: contextData } = await supabase
     .from("company_context")
     .select("stage, is_grounded")
     .eq("company_id", role.company_id)
     .single();
 
-  // Fetch grounding data if grounded
   let groundingData = null;
   if (contextData?.is_grounded) {
     const { data: grounding } = await supabase
@@ -167,7 +77,7 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
       .eq("company_id", role.company_id)
       .eq("status", "confirmed")
       .single();
-    
+
     if (grounding) {
       groundingData = {
         products: grounding.products || [],
@@ -180,7 +90,6 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
     }
   }
 
-  // Fetch active objectives
   const { data: objectives } = await supabase
     .from("role_objectives")
     .select("id, title, description, status, priority")
@@ -189,7 +98,6 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
     .order("priority", { ascending: true })
     .limit(5);
 
-  // Fetch recent company memory
   const { data: memory } = await supabase
     .from("company_memory")
     .select("content, label, created_at")
@@ -197,14 +105,12 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
     .order("created_at", { ascending: false })
     .limit(10);
 
-  // Fetch pending workflow requests for this role
   const { data: pendingRequests } = await supabase
     .from("workflow_requests")
     .select("id")
     .eq("requesting_role_id", roleId)
     .eq("status", "pending");
 
-  // Fetch recent messages
   const { data: messages } = await supabase
     .from("role_messages")
     .select("sender, content, created_at")
@@ -225,185 +131,22 @@ async function gatherContext(supabase: any, roleId: string): Promise<RoleContext
   };
 }
 
-function buildAutonomousPrompt(context: RoleContext): string {
-  const stageContext = context.companyStage
-    ? `Company Stage: ${context.companyStage}. ${
-        context.companyStage === "early"
-          ? "Assume sparse data, prioritize speed over perfection, favor hypotheses over rigid frameworks."
-          : context.companyStage === "growth"
-          ? "Balance speed with process, support scaling decisions."
-          : "Respect established processes, optimize for efficiency."
-      }`
-    : "";
-
-  // Include grounding data as source of truth
-  let groundingContext = "";
-  if (context.groundingData) {
-    const gd = context.groundingData;
-    groundingContext = `
----
-COMPANY GROUNDING (Source of Truth):
-${gd.products.length > 0 ? `Products/Services: ${gd.products.map(p => p.name).join(", ")}` : "No products defined yet."}
-${gd.entities.length > 0 ? `Entities: ${gd.entities.map(e => `${e.name} (${e.type})`).join(", ")}` : ""}
-${gd.intendedCustomer ? `Target Customer: ${gd.intendedCustomer}` : "Target customer not defined."}
-${gd.constraints.length > 0 ? `Constraints: ${gd.constraints.map(c => `[${c.type}] ${c.description}`).join("; ")}` : ""}
-
-${gd.currentStateSummary ? `
-Known Facts:
-${gd.currentStateSummary.knownFacts.map(f => `• ${f}`).join("\n")}
-
-Open Questions:
-${gd.currentStateSummary.openQuestions.map(q => `? ${q}`).join("\n")}
-` : ""}
-${gd.technicalContext ? `
-CUSTOMER TECHNICAL ARCHITECTURE:
-${gd.technicalContext.databaseTables?.length ? `Database Tables: ${gd.technicalContext.databaseTables.map(t => `${t.name} (${t.description})`).join(", ")}` : ""}
-${gd.technicalContext.apiEndpoints?.length ? `API Endpoints: ${gd.technicalContext.apiEndpoints.map(e => `${e.method} ${e.path}`).join(", ")}` : ""}
-${gd.technicalContext.techStack?.length ? `Tech Stack: ${gd.technicalContext.techStack.map(t => `${t.name}${t.version ? `@${t.version}` : ""}`).join(", ")}` : ""}
-${gd.technicalContext.externalServices?.length ? `External Services: ${gd.technicalContext.externalServices.map(s => `${s.name} (${s.purpose})`).join(", ")}` : ""}
-` : ""}
----`;
-  }
-
-  const objectivesText = context.objectives.length > 0
-    ? `Current Objectives:\n${context.objectives.map((o, i) => `${i + 1}. ${o.title}: ${o.description}`).join("\n")}`
-    : "No active objectives assigned. Propose an initial objective based on your mandate.";
-
-  const memoryText = context.recentMemory.length > 0
-    ? `Recent Company Memory:\n${context.recentMemory.slice(0, 5).map((m) => `- ${m.label || "Note"}: ${m.content.slice(0, 200)}...`).join("\n")}`
-    : "No company memory recorded yet.";
-
-  const recentActivity = context.recentMessages.length > 0
-    ? `Last Activity:\n${context.recentMessages.slice(0, 3).map((m) => `[${m.sender}]: ${m.content.slice(0, 100)}...`).join("\n")}`
-    : "No recent activity.";
-
-  return `${context.role.system_prompt}
-
----
-CURRENT CONTEXT:
-Company: ${context.company.name}
-${stageContext}
-
-${AXIS_TECHNICAL_CONTEXT}
-${groundingContext}
-
-${objectivesText}
-
-${memoryText}
-
-${recentActivity}
-
-Pending Workflow Requests: ${context.pendingRequests}
-
----
-CRITICAL CAPABILITY BOUNDARIES:
-
-## What You CAN Propose Tasks For:
-- Research and analysis (based on available context and grounding data)
-- Creating documents, specifications, plans, frameworks, playbooks
-- Writing internal memos to other roles
-- Synthesizing information and making recommendations
-- Drafting strategies, process documentation, or decision frameworks
-- Preparing briefings, reports, or summaries
-
-## What You CANNOT Propose (the system cannot execute these):
-- Deploying code, SDKs, software, or infrastructure to any environment
-- Sending external emails, Slack messages, or notifications to real people
-- Accessing CRM, analytics platforms, or external databases
-- Making API calls to external services (no email automation, no webhooks)
-- Scheduling meetings or calendar events
-- Creating actual integrations or technical implementations
-- Running tests, CI/CD pipelines, or builds
-- Publishing content externally (social media, websites)
-
-## If Your Objective Requires External Capabilities:
-If your objective requires integrations or capabilities that don't exist (email, CRM, analytics, 
-external communications), propose a MEMO to the CEO explaining:
-1. What capability is needed
-2. Why it's needed for your objective
-3. What you can accomplish once it's available
-
-Do NOT propose a task claiming you'll "set up", "deploy", "send", or "integrate" something 
-the system cannot actually do.
-
-### For Non-Technical Roles (CEO, Sales, Growth, Marketing, etc.):
-VALID task example: "Document the email outreach strategy and template requirements"
-INVALID task example: "Deploy email automation system to production"
-VALID task example: "Create technical specification for logging infrastructure"
-INVALID task example: "Deploy Logging SDK to staging environment"
-
-### For Technical Roles (Product, Builder, Engineering):
-These roles CAN propose development tasks that Lovable will implement after approval.
-The task output should be a specification that Lovable can directly use.
-
-VALID development task examples:
-- "Add a 'Mark Complete' button to TaskDetailView.tsx that calls supabase.update() on tasks table"
-- "Create a notifications table with user_id, message, read_at columns and RLS policies"
-- "Update role-chat edge function to include previous task outputs in context"
-- "Add a dashboard page showing all active tasks across roles with filtering"
-- "Implement task prioritization UI in TaskPanel.tsx with drag-and-drop reordering"
-
-INVALID development task examples:
-- "Deploy to production" (Lovable deploys automatically)
-- "Set up CI/CD pipeline" (not applicable)
-- "Integrate with Salesforce" (no external integrations available)
-- "Send push notifications to users" (no mobile/push infrastructure)
-
-## Referencing Existing Systems:
-When your work relates to existing infrastructure (see Technical Architecture above), reference it accurately:
-- Use actual table names (e.g., "role_memos" not "the messaging system")
-- Acknowledge what exists before proposing extensions
-- If documenting architecture, describe what IS, not what you imagine
-
----
-AUTONOMOUS LOOP INSTRUCTIONS:
-You are in an autonomous loop. Analyze the context above and decide what to do next.
-
-CRITICAL: Base all decisions on KNOWN FACTS from grounding. Do NOT infer or assume information not provided.
-
-Respond with a JSON object:
-{
-  "action": "propose_task" | "propose_memo" | "wait" | "complete_objective",
-  "reasoning": "Brief explanation of your decision",
-  "details": {
-    // For propose_task:
-    "title": "Task title",
-    "description": "What to accomplish",
-    "completion_criteria": "How to know it's done"
-    
-    // For propose_memo:
-    "to_role": "Role name to send to",
-    "content": "Memo content"
-    
-    // For complete_objective:
-    "objective_id": "UUID of completed objective",
-    "summary": "What was accomplished"
-    
-    // For wait:
-    "reason": "Why waiting is appropriate"
-  }
-}
-
-Rules:
-- If you have pending workflow requests, action should be "wait"
-- If objectives are complete, propose a new one or mark complete
-- Be specific and actionable in proposals
-- Consider company stage when calibrating urgency
-- NEVER propose strategy that contradicts known facts or makes assumptions about unknowns
-- NEVER propose tasks claiming to deploy, send, or access external systems (except Product/Builder proposing Lovable-implementable features)
-- If external integrations are needed, propose a memo to CEO requesting them
-- For non-technical roles: ONLY propose tasks that produce documents, research, memos, or internal communications
-- For Product/Builder roles: You MAY propose development tasks with implementation specs for Lovable to build
-`;
-
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    if (!AXIS_API_URL || !AXIS_API_SECRET) {
+      return new Response(
+        JSON.stringify({ error: "AXIS_API_URL / AXIS_API_SECRET not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
@@ -425,7 +168,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Gather context for the role
     const context = await gatherContext(supabase, role_id);
     if (!context) {
       return new Response(JSON.stringify({ error: "Role not found" }), {
@@ -434,31 +176,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    // GROUNDING CHECK: If company is not grounded, block autonomous behavior
     if (!context.isGrounded) {
       return new Response(
         JSON.stringify({
           action: "blocked",
           mode: "grounding_required",
-          reasoning: "Company has not completed the grounding phase. Autonomous behavior is disabled until foundational facts are established.",
+          reasoning: "Company has not completed the grounding phase.",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ACTIVATION CHECK: If role is not activated, block autonomous behavior
     if (!context.role.is_activated) {
       return new Response(
         JSON.stringify({
           action: "blocked",
           mode: "activation_required",
-          reasoning: "Role has not been activated. Complete the activation wizard first.",
+          reasoning: "Role has not been activated.",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // If already awaiting approval, don't run loop
     if (context.role.workflow_status === "awaiting_approval") {
       return new Response(
         JSON.stringify({
@@ -469,7 +208,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If has pending requests, wait
     if (context.pendingRequests > 0) {
       return new Response(
         JSON.stringify({
@@ -480,95 +218,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build context payload and call /autonomous endpoint
-    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
-    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
-
-    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Moltbot API not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Build the structured context payload for the autonomous endpoint
-    const autonomousPayload = {
-      company_id: context.role.company_id,
-      role_id: role_id,
-      context: {
-        role: {
-          name: context.role.name,
-          mandate: context.role.mandate,
-          system_prompt: context.role.system_prompt,
-          workflow_status: context.role.workflow_status,
-        },
-        company: {
-          name: context.company.name,
-        },
-        companyStage: context.companyStage,
-        objectives: context.objectives.map(o => ({
-          id: o.id,
-          title: o.title,
-          description: o.description,
-          status: o.status,
-          priority: o.priority,
-        })),
-        grounding: context.groundingData ? {
-          products: context.groundingData.products,
-          entities: context.groundingData.entities,
-          intendedCustomer: context.groundingData.intendedCustomer,
-          constraints: context.groundingData.constraints,
-          currentStateSummary: context.groundingData.currentStateSummary,
-          technicalContext: context.groundingData.technicalContext,
-        } : null,
-        recentMemory: context.recentMemory.map(m => ({
-          content: m.content,
-          label: m.label,
-          created_at: m.created_at,
-        })),
-        recentMessages: context.recentMessages.map(m => ({
-          sender: m.sender,
-          content: m.content,
-          created_at: m.created_at,
-        })),
-        pendingRequests: context.pendingRequests,
-        technicalArchitecture: AXIS_TECHNICAL_CONTEXT,
-      },
-    };
-
-    const aiResponse = await fetch(`${MOLTBOT_API_URL}/autonomous`, {
+    const axisResponse = await fetch(`${AXIS_API_URL}/api/v1/autonomous`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${MOLTBOT_API_KEY}`,
+        Authorization: `Bearer ${AXIS_API_SECRET}`,
       },
-      body: JSON.stringify(autonomousPayload),
+      body: JSON.stringify({
+        company_id: context.company.id,
+        role_id: context.role.id,
+        context: {
+          role: {
+            name: context.role.name,
+            mandate: context.role.mandate,
+          },
+          company: context.company,
+          grounding: context.groundingData,
+          objectives: context.objectives,
+          recentMemory: context.recentMemory,
+          pendingRequests: context.pendingRequests,
+        },
+      }),
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("Autonomous API error:", errorText);
+    if (!axisResponse.ok) {
+      const errorText = await axisResponse.text();
+      console.error("Axis API error:", errorText);
       return new Response(
-        JSON.stringify({ error: "Autonomous processing failed", details: errorText }),
+        JSON.stringify({ error: "AI processing failed", details: errorText }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // The /autonomous endpoint returns the decision directly as JSON
-    const decision = await aiResponse.json();
+    const decision = await axisResponse.json();
 
-    if (!decision || !decision.action) {
-      return new Response(
-        JSON.stringify({ error: "Invalid autonomous response", raw: decision }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Execute the decision and build audit message
     let auditMessage = "";
 
     if (decision.action === "propose_task" && decision.details) {
-      // Create a workflow request for the task
       const { error: wfError } = await supabase.from("workflow_requests").insert({
         company_id: context.role.company_id,
         requesting_role_id: context.role.id,
@@ -584,29 +270,14 @@ Deno.serve(async (req) => {
       if (wfError) {
         console.error("Failed to create workflow request:", wfError);
       } else {
-        // Update role status
         await supabase
           .from("roles")
           .update({ workflow_status: "awaiting_approval" })
           .eq("id", role_id);
       }
 
-      // Build rich audit message for task proposals
-      auditMessage = `🤖 **Autonomous Action: Task Proposed**
-
-**Reasoning:** ${decision.reasoning}
-
----
-
-📋 **Proposed Task:**
-- **Title:** ${decision.details.title}
-- **Description:** ${decision.details.description}
-- **Completion Criteria:** ${decision.details.completion_criteria}
-
-⏳ *Awaiting approval in the Workflow panel.*`;
-
+      auditMessage = `🤖 **Autonomous Action: Task Proposed** (via Axis API/Kimi)\n\n**Reasoning:** ${decision.reasoning}\n\n📋 **Proposed Task:**\n- **Title:** ${decision.details.title}\n- **Description:** ${decision.details.description}\n- **Completion Criteria:** ${decision.details.completion_criteria}\n\n⏳ *Awaiting approval in the Workflow panel.*`;
     } else if (decision.action === "propose_memo" && decision.details) {
-      // Find target role
       const { data: targetRole } = await supabase
         .from("roles")
         .select("id, name, display_name")
@@ -634,43 +305,19 @@ Deno.serve(async (req) => {
         }
 
         const targetName = targetRole.display_name || targetRole.name;
-        auditMessage = `🤖 **Autonomous Action: Memo Proposed**
-
-**Reasoning:** ${decision.reasoning}
-
----
-
-📬 **Proposed Memo to ${targetName}:**
-${decision.details.content}
-
-⏳ *Awaiting approval in the Workflow panel.*`;
+        auditMessage = `🤖 **Autonomous Action: Memo Proposed** (via Axis API/Kimi)\n\n**Reasoning:** ${decision.reasoning}\n\n📬 **Proposed Memo to ${targetName}:**\n${decision.details.content}\n\n⏳ *Awaiting approval in the Workflow panel.*`;
       }
     } else if (decision.action === "complete_objective" && decision.details?.objective_id) {
-      // Mark objective as completed
       await supabase
         .from("role_objectives")
         .update({ status: "completed" })
         .eq("id", decision.details.objective_id);
 
-      auditMessage = `🤖 **Autonomous Action: Objective Completed**
-
-**Reasoning:** ${decision.reasoning}
-
-✅ *Objective marked as complete.*`;
+      auditMessage = `🤖 **Autonomous Action: Objective Completed** (via Axis API/Kimi)\n\n**Reasoning:** ${decision.reasoning}\n\n✅ *Objective marked as complete.*`;
     } else if (decision.action === "wait") {
-      auditMessage = `🤖 **Autonomous Action: Waiting**
-
-**Reasoning:** ${decision.reasoning}
-
-⏸️ *No action required at this time.*`;
-    } else {
-      // Fallback for any other action
-      auditMessage = `🤖 **Autonomous Action: ${decision.action}**
-
-**Reasoning:** ${decision.reasoning}`;
+      auditMessage = `🤖 **Autonomous Action: Waiting** (via Axis API/Kimi)\n\n**Reasoning:** ${decision.reasoning}\n\n⏸️ *No action required at this time.*`;
     }
 
-    // Log the decision as a message (fixed: use "ai" not "assistant")
     if (auditMessage) {
       await supabase.from("role_messages").insert({
         role_id: context.role.id,

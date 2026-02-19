@@ -121,80 +121,20 @@ Deno.serve(async (req: Request) => {
           break;
         }
 
-        // Try to scrape the URL
-        const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL")!;
-        const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY")!;
-
         let url = message.trim();
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
           url = `https://${url}`;
         }
 
-        try {
-          const scrapeEndpoint = `${MOLTBOT_API_URL}/scrape`;
-          console.log("Scraping URL:", url, "via", scrapeEndpoint);
-          
-          const scrapeRes = await fetch(scrapeEndpoint, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${MOLTBOT_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ url }),
-          });
-
-          console.log("Scrape response status:", scrapeRes.status, scrapeRes.statusText);
-          const scrapeText = await scrapeRes.text();
-          console.log("Scrape response body (first 500):", scrapeText.substring(0, 500));
-
-          if (!scrapeRes.ok) {
-            response = {
-              reply:
-                `I couldn't fetch that URL (status ${scrapeRes.status}). Could you try another link, or type **skip** to describe your company manually?`,
-              state: "ask_url",
-              context,
-            };
-            break;
-          }
-          
-          const scrapeData = JSON.parse(scrapeText);
-
-          // scrapeData already parsed above
-          const extracted = scrapeData.extracted || {};
-
-          // Build a summary of what was found
-          const lines: string[] = ["Here's what I found:\n"];
-          lines.push(
-            `**Company:** ${extracted.company_name || context.company}`
-          );
-          if (extracted.description)
-            lines.push(`**Description:** ${extracted.description}`);
-          if (extracted.products?.length)
-            lines.push(
-              `**Products:** ${extracted.products.map((p: { name: string }) => p.name).join(", ")}`
-            );
-          if (extracted.tech_stack?.length)
-            lines.push(`**Tech Stack:** ${extracted.tech_stack.join(", ")}`);
-          if (extracted.target_customer)
-            lines.push(`**Target Customer:** ${extracted.target_customer}`);
-
-          lines.push(
-            "\nDoes this look right? Say **yes** to confirm, or tell me what to change."
-          );
-
-          response = {
-            reply: lines.join("\n"),
-            state: "confirm",
-            context: { ...context, extracted, url },
-          };
-        } catch (_e) {
-          response = {
-            reply:
-              "Something went wrong fetching that URL. Try another link, or type **skip**.",
-            state: "ask_url",
-            context,
-          };
-        }
+        // Kimi-only MVP: no external scraping/provisioning.
+        // Collect the URL for reference and continue with manual company description.
+        response = {
+          reply:
+            `Thanks. For now I won't auto-scrape links. In one sentence, what does **${context.company}** do?\n\n` +
+            `If there are key details from that link I should use, include them in your description.`,
+          state: "manual_description",
+          context: { ...context, url },
+        };
         break;
       }
 
@@ -351,9 +291,6 @@ async function provisionCompany(
   userId: string,
   context: OnboardingContext
 ): Promise<ChatResponse> {
-  const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL")!;
-  const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY")!;
-
   // Service role client bypasses RLS — insert company directly
   const { data: newCompany, error: cError } = await supabase
     .from("companies")
@@ -471,56 +408,62 @@ async function provisionCompany(
         is_activated: false,
       }))
     )
-    .select("id, name, mandate");
+    .select("id, name, mandate, system_prompt, authority_level, memory_scope");
 
   if (rolesError) {
     console.error("Failed to create roles:", rolesError);
   }
 
-  // 6. Call Moltbot provision (fire and forget)
+  const roleNames =
+    createdRoles?.map((r) => `✅ **${r.name}** — ${r.mandate}`).join("\n") ||
+    "✅ CEO\n✅ Chief of Staff\n✅ Product";
+
+  // Best-effort workspace provisioning for OpenClaw.
+  // This should not block onboarding completion.
   try {
-    // Get owner profile
     const { data: profile } = await supabase
       .from("profiles")
       .select("display_name")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
-    await fetch(`${MOLTBOT_API_URL}/provision`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${MOLTBOT_API_KEY}`,
-        "Content-Type": "application/json",
+    const provisionPayload = {
+      company_id: newCompanyId,
+      company_name: context.company || "My Company",
+      grounding: {
+        products: products,
+        entities: [],
+        intendedCustomer:
+          context.extracted?.target_customer || context.customer || null,
+        constraints: [],
+        aspirations: context.goal
+          ? [{ goal: context.goal, timeframe: "3 months" }]
+          : [],
+        technical_context: {
+          techStack,
+          databaseTables: [],
+          apiEndpoints: [],
+          externalServices: [],
+        },
       },
-      body: JSON.stringify({
-        company_id: newCompanyId,
-        company_name: context.company,
-        grounding: {
-          products: products,
-          entities: [],
-          intendedCustomer:
-            context.extracted?.target_customer || context.customer,
-          constraints: [],
-        },
-        roles:
-          createdRoles?.map((r) => ({
-            id: r.id,
-            name: r.name,
-            mandate: r.mandate,
-          })) || [],
-        owner: {
-          name: profile?.display_name || context.name || "Founder",
-        },
-      }),
-    });
-    console.log("Moltbot provisioned successfully");
-  } catch (e) {
-    console.error("Moltbot provision failed:", e);
-  }
+      roles:
+        createdRoles?.map((role) => ({
+          id: role.id,
+          name: role.name,
+          mandate: role.mandate,
+          system_prompt: role.system_prompt,
+          authority_level: role.authority_level,
+          memory_scope: role.memory_scope,
+        })) || [],
+      owner: {
+        name: profile?.display_name || context.name || "Founder",
+      },
+    };
 
-  const roleNames =
-    createdRoles?.map((r) => `✅ **${r.name}** — ${r.mandate}`).join("\n") ||
-    "✅ CEO\n✅ Chief of Staff\n✅ Product";
+    await triggerOpenClawProvision(provisionPayload);
+  } catch (provisionError) {
+    console.error("Onboarding provision sync failed:", provisionError);
+  }
 
   return {
     reply:
@@ -532,4 +475,28 @@ async function provisionCompany(
     done: true,
     company_id: newCompanyId,
   };
+}
+
+async function triggerOpenClawProvision(payload: Record<string, unknown>) {
+  const axisApiUrl = Deno.env.get("AXIS_API_URL");
+  const axisApiSecret = Deno.env.get("AXIS_API_SECRET");
+
+  if (!axisApiUrl || !axisApiSecret) {
+    console.warn("Skipping OpenClaw provision: AXIS_API_URL / AXIS_API_SECRET not configured");
+    return;
+  }
+
+  const response = await fetch(`${axisApiUrl}/api/v1/provision`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${axisApiSecret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Provision API failed (${response.status}): ${details}`);
+  }
 }

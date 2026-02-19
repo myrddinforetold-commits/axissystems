@@ -22,12 +22,12 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
-    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
+    const AXIS_API_URL = Deno.env.get("AXIS_API_URL");
+    const AXIS_API_SECRET = Deno.env.get("AXIS_API_SECRET");
 
-    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
+    if (!AXIS_API_URL || !AXIS_API_SECRET) {
       return new Response(
-        JSON.stringify({ error: "Moltbot not configured" }),
+        JSON.stringify({ error: "AXIS_API_URL / AXIS_API_SECRET not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -75,12 +75,12 @@ Deno.serve(async (req) => {
       supabase.from("companies").select("id, name").eq("id", company_id).single(),
       supabase
         .from("company_grounding")
-        .select("products, entities, intended_customer, constraints")
+        .select("products, entities, intended_customer, constraints, aspirations, technical_context")
         .eq("company_id", company_id)
         .single(),
       supabase
         .from("roles")
-        .select("id, name, mandate")
+        .select("id, name, mandate, system_prompt, authority_level, memory_scope")
         .eq("company_id", company_id),
       supabase
         .from("company_members")
@@ -115,24 +115,29 @@ Deno.serve(async (req) => {
         entities: grounding?.entities || [],
         intendedCustomer: grounding?.intended_customer,
         constraints: grounding?.constraints || [],
+        aspirations: grounding?.aspirations || [],
+        technical_context: grounding?.technical_context || {},
       },
       roles:
         roles?.map((r) => ({
           id: r.id,
           name: r.name,
           mandate: r.mandate,
+          system_prompt: r.system_prompt,
+          authority_level: r.authority_level,
+          memory_scope: r.memory_scope,
         })) || [],
       owner: {
         name: ownerName,
       },
     };
 
-    console.log("Provisioning Moltbot agents for company:", company?.name);
+    console.log("Provisioning OpenClaw workspaces for company:", company?.name);
 
-    const response = await fetch(`${MOLTBOT_API_URL}/provision`, {
+    const response = await fetch(`${AXIS_API_URL}/api/v1/provision`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${MOLTBOT_API_KEY}`,
+        Authorization: `Bearer ${AXIS_API_SECRET}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(provisionPayload),
@@ -140,7 +145,7 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Moltbot provision failed:", response.status, errorText);
+      console.error("OpenClaw provision failed:", response.status, errorText);
       return new Response(
         JSON.stringify({ error: "Provision failed", details: errorText }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -148,7 +153,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await response.json();
-    console.log("Moltbot provision successful:", result);
+    console.log("OpenClaw provision successful:", result);
 
     return new Response(JSON.stringify({ success: true, result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

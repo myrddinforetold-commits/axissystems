@@ -10,15 +10,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const MOLTBOT_API_URL = Deno.env.get("MOLTBOT_API_URL");
-    const MOLTBOT_API_KEY = Deno.env.get("MOLTBOT_API_KEY");
-
-    if (!MOLTBOT_API_URL || !MOLTBOT_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Moltbot API not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const AXIS_API_URL = Deno.env.get("AXIS_API_URL");
+    const AXIS_API_SECRET = Deno.env.get("AXIS_API_SECRET");
 
     const url = new URL(req.url);
     const companyId = url.searchParams.get("company_id");
@@ -31,14 +24,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const res = await fetch(
-      `${MOLTBOT_API_URL}/status?company_id=${companyId}&role_id=${roleId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${MOLTBOT_API_KEY}`,
-        },
-      }
-    );
+    if (!AXIS_API_URL || !AXIS_API_SECRET) {
+      // Graceful degradation — return idle status
+      return new Response(
+        JSON.stringify({
+          status: "idle",
+          last_active: null,
+          pending_workflow: false,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const res = await fetch(`${AXIS_API_URL}/api/v1/status?company_id=${companyId}&role_id=${roleId}`, {
+      headers: {
+        Authorization: `Bearer ${AXIS_API_SECRET}`,
+      },
+    });
 
     if (!res.ok) {
       // Graceful degradation — return idle status

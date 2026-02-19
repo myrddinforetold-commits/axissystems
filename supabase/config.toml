@@ -1,4 +1,4 @@
-project_id = "edgbkbsszquvrzqtebtu"
+project_id = "bnlsiueptiaxbxdialza"
 
 [functions.role-chat]
 verify_jwt = false
@@ -25,4 +25,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.onboarding-chat]
+verify_jwt = false
+
+[functions.role-autonomous-loop]
 verify_jwt = false
