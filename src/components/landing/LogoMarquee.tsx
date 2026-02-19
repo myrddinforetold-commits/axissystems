@@ -44,13 +44,37 @@ export function LogoMarquee() {
   return (
     <div ref={ref as React.RefObject<HTMLDivElement>}>
       {/* Trust signals bar */}
-      <section className="py-4 border-b border-border/40 bg-muted/20 overflow-x-auto">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="flex items-center justify-start sm:justify-center divide-x divide-border/40 min-w-max sm:min-w-0 mx-auto">
+      <section className="py-4 border-b border-border/40 bg-muted/20 overflow-hidden">
+        {/* Mobile: auto-scrolling marquee */}
+        <div className="sm:hidden relative flex">
+          <div className="flex animate-[marquee_18s_linear_infinite] shrink-0">
+            {[...trustItems, ...trustItems].map((item, i) => (
+              <span
+                key={i}
+                className="px-8 py-2 text-[9px] uppercase tracking-[0.18em] text-muted-foreground/60 font-mono whitespace-nowrap border-r border-border/40"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="flex animate-[marquee_18s_linear_infinite] shrink-0" aria-hidden>
+            {[...trustItems, ...trustItems].map((item, i) => (
+              <span
+                key={i}
+                className="px-8 py-2 text-[9px] uppercase tracking-[0.18em] text-muted-foreground/60 font-mono whitespace-nowrap border-r border-border/40"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+        {/* Desktop: static centered */}
+        <div className="hidden sm:block max-w-5xl mx-auto px-6">
+          <div className="flex items-center justify-center divide-x divide-border/40">
             {trustItems.map((item) => (
               <span
                 key={item}
-                className="px-5 sm:px-8 py-2 text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 font-mono whitespace-nowrap"
+                className="px-8 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 font-mono whitespace-nowrap"
               >
                 {item}
               </span>
