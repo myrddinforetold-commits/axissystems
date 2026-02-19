@@ -38,7 +38,7 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
         >
           Your company now has
           <br />
-          <span className="text-gradient-shimmer font-normal">software that works.</span>
+          <span className="font-normal hero-shimmer">software that works.</span>
         </h1>
         
         {/* Subheadline */}
