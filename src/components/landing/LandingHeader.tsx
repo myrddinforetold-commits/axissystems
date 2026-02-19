@@ -73,10 +73,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Left: Logo */}
-          <Link 
-            to="/" 
-            className="group"
-          >
+          <Link to="/" className="group shrink-0">
             <span className={cn(
               "text-sm sm:text-base tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none font-mono",
               isScrolled ? "text-foreground" : "text-white"
