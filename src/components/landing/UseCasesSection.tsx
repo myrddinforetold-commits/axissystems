@@ -42,11 +42,11 @@ export function UseCasesSection() {
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-0 divide-y divide-border/30">
-          {useCases.map((item, i) => (
+        <div className="divide-y divide-border/30">
+          {useCases.map((item) => (
             <div
               key={item.title}
-              className="py-8 md:py-10 grid md:grid-cols-[1fr_1.4fr] gap-4 md:gap-10"
+              className="py-8 md:py-10 grid md:grid-cols-[1fr_1.4fr] gap-4 md:gap-16"
             >
               <p
                 className="text-sm font-medium text-foreground/90"
