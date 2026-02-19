@@ -76,13 +76,8 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
           </Button>
         </div>
         
-        {/* Supporting line */}
-        <p
-          className="mt-16 text-xs tracking-widest uppercase opacity-0 animate-fade-in"
-          style={{ color: "hsla(220,15%,40%,1)", animationDelay: "0.9s", animationFillMode: "forwards" }}
-        >
-          Not assistants.&nbsp;&nbsp;Not automations.&nbsp;&nbsp;Operators.
-        </p>
+        
+
       </div>
       
       {/* Scroll indicator */}
