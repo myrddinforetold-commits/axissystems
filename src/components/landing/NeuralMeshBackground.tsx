@@ -1,152 +1,153 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-interface Node {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
+const LOG_LINES = [
+  { prefix: "role.assign", label: "Chief of Staff", value: "active" },
+  { prefix: "task.create", label: "Q2 operational review", value: "pending approval" },
+  { prefix: "role.assign", label: "Operations", value: "active" },
+  { prefix: "memory.write", label: "product_context_v3", value: "stored" },
+  { prefix: "task.execute", label: "Customer follow-up batch", value: "running" },
+  { prefix: "role.assign", label: "CEO", value: "active" },
+  { prefix: "workflow.request", label: "send_memo → Operations", value: "awaiting approval" },
+  { prefix: "task.complete", label: "Internal report — week 12", value: "done" },
+  { prefix: "memory.read", label: "company_grounding_v2", value: "loaded" },
+  { prefix: "role.assign", label: "Product", value: "active" },
+  { prefix: "task.create", label: "Roadmap prioritisation brief", value: "pending approval" },
+  { prefix: "workflow.approve", label: "send_memo → CEO", value: "approved" },
+  { prefix: "task.execute", label: "Task routing — support queue", value: "running" },
+  { prefix: "memory.write", label: "decision_log_q2", value: "stored" },
+  { prefix: "task.complete", label: "Operational coordination — March", value: "done" },
+];
+
+interface DisplayLine {
+  id: number;
+  prefix: string;
+  label: string;
+  value: string;
+  typed: number; // chars typed so far in the full string
+  full: string;
   opacity: number;
-  pulseOffset: number;
 }
 
 export function NeuralMeshBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const nodesRef = useRef<Node[]>([]);
-  const animationRef = useRef<number>();
-  const timeRef = useRef(0);
+  const [lines, setLines] = useState<DisplayLine[]>([]);
+  const counterRef = useRef(0);
+  const lineIndexRef = useRef(0);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const MAX_LINES = 8;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const addLine = () => {
+      const src = LOG_LINES[lineIndexRef.current % LOG_LINES.length];
+      lineIndexRef.current++;
+      const full = `${src.prefix}   ${src.label}`;
+      const newLine: DisplayLine = {
+        id: counterRef.current++,
+        prefix: src.prefix,
+        label: src.label,
+        value: src.value,
+        typed: 0,
+        full,
+        opacity: 1,
+      };
 
-    const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    };
-
-    const initNodes = () => {
-      const isMobile = canvas.offsetWidth < 768;
-      const nodeCount = isMobile ? 40 : 70;
-      const nodes: Node[] = [];
-
-      for (let i = 0; i < nodeCount; i++) {
-        const isSmall = Math.random() > 0.7;
-        nodes.push({
-          x: Math.random() * canvas.offsetWidth,
-          y: Math.random() * canvas.offsetHeight,
-          vx: (Math.random() - 0.5) * 0.12,
-          vy: (Math.random() - 0.5) * 0.12,
-          size: isSmall ? 1 + Math.random() * 1 : 1.5 + Math.random() * 1.5,
-          opacity: 0.2 + Math.random() * 0.5,
-          pulseOffset: Math.random() * Math.PI * 2,
-        });
-      }
-
-      nodesRef.current = nodes;
-    };
-
-    const animate = () => {
-      if (!ctx || !canvas) return;
-
-      const width = canvas.offsetWidth;
-      const height = canvas.offsetHeight;
-      timeRef.current += 0.008;
-      const time = timeRef.current;
-
-      ctx.clearRect(0, 0, width, height);
-
-      const nodes = nodesRef.current;
-
-      // Update positions
-      nodes.forEach((node) => {
-        node.x += node.vx;
-        node.y += node.vy;
-
-        if (node.x < -30) node.x = width + 30;
-        if (node.x > width + 30) node.x = -30;
-        if (node.y < -30) node.y = height + 30;
-        if (node.y > height + 30) node.y = -30;
+      setLines((prev) => {
+        const next = [...prev, newLine].slice(-MAX_LINES);
+        return next;
       });
+    };
 
-      // Draw connections
-      const maxConnectionDist = isMobile(canvas) ? 130 : 180;
+    // Type characters
+    const typeInterval = setInterval(() => {
+      setLines((prev) =>
+        prev.map((l) =>
+          l.typed < l.full.length ? { ...l, typed: l.typed + 2 } : l
+        )
+      );
+    }, 30);
 
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i];
-          const b = nodes[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+    // Add new line every ~2.2s
+    addLine();
+    const lineInterval = setInterval(addLine, 2200);
 
-          if (dist < maxConnectionDist) {
-            const proximity = 1 - dist / maxConnectionDist;
-            // Breathing line opacity
-            const breathe = Math.sin(time + a.pulseOffset) * 0.08 + 0.92;
-            const alpha = proximity * 0.14 * breathe;
-
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `hsla(220, 15%, 75%, ${alpha})`;
-            ctx.lineWidth = 0.75;
-            ctx.stroke();
+    // Fade out old lines
+    const fadeInterval = setInterval(() => {
+      setLines((prev) =>
+        prev.map((l, i) => {
+          if (i < prev.length - 5) {
+            return { ...l, opacity: Math.max(0, l.opacity - 0.04) };
           }
-        }
-      }
-
-      // Draw nodes
-      nodes.forEach((node) => {
-        const pulse = Math.sin(time * 1.2 + node.pulseOffset) * 0.15 + 0.85;
-        const alpha = node.opacity * pulse;
-
-        // Subtle outer glow
-        const glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.size * 5);
-        glow.addColorStop(0, `hsla(220, 20%, 80%, ${alpha * 0.25})`);
-        glow.addColorStop(1, `hsla(220, 20%, 80%, 0)`);
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.size * 5, 0, Math.PI * 2);
-        ctx.fillStyle = glow;
-        ctx.fill();
-
-        // Core dot
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.size * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(220, 20%, 82%, ${alpha})`;
-        ctx.fill();
-      });
-
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    const isMobile = (c: HTMLCanvasElement) => c.offsetWidth < 768;
-
-    resizeCanvas();
-    initNodes();
-    animate();
-
-    const handleResize = () => {
-      resizeCanvas();
-      initNodes();
-    };
-
-    window.addEventListener("resize", handleResize);
+          return l;
+        })
+      );
+    }, 50);
 
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      window.removeEventListener("resize", handleResize);
+      clearInterval(typeInterval);
+      clearInterval(lineInterval);
+      clearInterval(fadeInterval);
     };
   }, []);
 
+  const getValueColor = (value: string) => {
+    if (value === "done") return "text-emerald-500/70";
+    if (value === "running") return "text-sky-400/70";
+    if (value === "approved") return "text-emerald-400/70";
+    if (value.includes("approval")) return "text-amber-400/60";
+    if (value === "active") return "text-foreground/40";
+    if (value === "stored" || value === "loaded") return "text-foreground/35";
+    return "text-foreground/30";
+  };
+
+  const getPrefixColor = (prefix: string) => {
+    if (prefix.startsWith("task.complete") || prefix.startsWith("workflow.approve")) return "text-foreground/25";
+    if (prefix.startsWith("task.execute") || prefix.startsWith("task.create")) return "text-foreground/30";
+    if (prefix.startsWith("role")) return "text-foreground/30";
+    return "text-foreground/20";
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
-    />
+    <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none select-none">
+      {/* Gradient fade — content stays readable */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/40 to-background/80 z-10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-background/60 z-10" />
+
+      {/* Terminal log */}
+      <div className="absolute bottom-0 left-0 right-0 pb-8 px-8 md:px-16 z-0 flex flex-col gap-1.5">
+        {lines.map((line) => {
+          const display = line.full.slice(0, line.typed);
+          const showValue = line.typed >= line.full.length;
+          const showCursor = line.typed < line.full.length;
+          return (
+            <div
+              key={line.id}
+              className="flex items-baseline gap-3 font-mono text-[11px] md:text-[12px] leading-relaxed transition-opacity duration-500"
+              style={{ opacity: line.opacity }}
+            >
+              {/* prefix */}
+              <span className={`shrink-0 ${getPrefixColor(line.prefix)} tracking-wide`}>
+                {display.slice(0, line.prefix.length)}
+              </span>
+
+              {/* label */}
+              {display.length > line.prefix.length && (
+                <span className="text-foreground/50 tracking-tight">
+                  {display.slice(line.prefix.length).trimStart()}
+                  {showCursor && (
+                    <span className="inline-block w-[1px] h-[10px] bg-foreground/40 ml-0.5 animate-blink" />
+                  )}
+                </span>
+              )}
+
+              {/* value badge */}
+              {showValue && (
+                <span className={`ml-auto shrink-0 text-[10px] uppercase tracking-widest ${getValueColor(line.value)}`}>
+                  {line.value}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
