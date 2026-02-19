@@ -100,7 +100,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               <div className="flex flex-col h-full">
                 {/* Mobile Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
-                  <span className="text-sm tracking-tight text-foreground flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span className="shrink-0 text-sm tracking-tight text-foreground flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     <span>axis</span>
                     <span className="-mt-1.5">systems</span>
                   </span>
