@@ -36,9 +36,8 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
           className="mt-10 text-4xl md:text-6xl lg:text-7xl font-light tracking-tight leading-[1.1] opacity-0 animate-fade-in-up"
           style={{ fontFamily: "'JetBrains Mono', monospace", color: "hsl(220,15%,92%)", animationDelay: "0.35s", animationFillMode: "forwards" }}
         >
-          Your company now has
-          <br />
-          <span className="font-normal hero-shimmer">software that works.</span>
+          Your company now has<br className="hidden sm:block" />
+          {" "}<span className="font-normal hero-shimmer">software that works.</span>
         </h1>
         
         {/* Subheadline */}
