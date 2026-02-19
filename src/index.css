@@ -228,6 +228,21 @@ All colors MUST be HSL.
     background-clip: text;
     animation: shimmer 3s linear infinite;
   }
+
+  /* Hero-specific shimmer — always light, hardcoded for dark hero bg */
+  .hero-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsla(220, 15%, 92%, 1) 0%,
+      hsla(185, 70%, 72%, 1) 40%,
+      hsla(220, 15%, 92%, 1) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
   
   .perspective-1000 {
     perspective: 1000px;
