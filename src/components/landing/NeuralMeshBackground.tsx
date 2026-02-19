@@ -107,16 +107,26 @@ export function NeuralMeshBackground() {
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none select-none">
-      {/* Gradient fade — content stays readable */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/40 to-background/80 z-10" />
-      <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-background/60 z-10" />
+      {/* Gradient — top vignette so log doesn't bleed into headline */}
+      <div className="absolute inset-0 z-10" style={{
+        background: "linear-gradient(to top, transparent 0%, hsla(220,20%,6%,0.5) 60%, hsla(220,20%,6%,0.85) 100%)"
+      }} />
 
-      {/* Terminal log */}
-      <div className="absolute bottom-0 left-0 right-0 pb-8 px-8 md:px-16 z-0 flex flex-col gap-1.5">
+      {/* Terminal log — anchored to bottom */}
+      <div className="absolute bottom-0 left-0 right-0 pb-20 px-8 md:px-20 z-0 flex flex-col gap-2">
         {lines.map((line) => {
           const display = line.full.slice(0, line.typed);
           const showValue = line.typed >= line.full.length;
           const showCursor = line.typed < line.full.length;
+
+          const valueStyle = (() => {
+            if (line.value === "done") return { color: "hsla(150,60%,55%,0.8)" };
+            if (line.value === "running") return { color: "hsla(200,80%,60%,0.75)" };
+            if (line.value === "approved") return { color: "hsla(150,60%,55%,0.75)" };
+            if (line.value.includes("approval")) return { color: "hsla(40,80%,60%,0.65)" };
+            return { color: "hsla(220,15%,55%,0.5)" };
+          })();
+
           return (
             <div
               key={line.id}
@@ -124,23 +134,26 @@ export function NeuralMeshBackground() {
               style={{ opacity: line.opacity }}
             >
               {/* prefix */}
-              <span className={`shrink-0 ${getPrefixColor(line.prefix)} tracking-wide`}>
+              <span className="shrink-0 tracking-wide" style={{ color: "hsla(220,15%,45%,0.6)" }}>
                 {display.slice(0, line.prefix.length)}
               </span>
 
               {/* label */}
               {display.length > line.prefix.length && (
-                <span className="text-foreground/50 tracking-tight">
+                <span style={{ color: "hsla(220,15%,70%,0.55)" }}>
                   {display.slice(line.prefix.length).trimStart()}
                   {showCursor && (
-                    <span className="inline-block w-[1px] h-[10px] bg-foreground/40 ml-0.5 animate-blink" />
+                    <span
+                      className="inline-block ml-0.5 animate-blink"
+                      style={{ width: "1px", height: "10px", backgroundColor: "hsla(220,15%,70%,0.5)", verticalAlign: "middle" }}
+                    />
                   )}
                 </span>
               )}
 
-              {/* value badge */}
+              {/* value */}
               {showValue && (
-                <span className={`ml-auto shrink-0 text-[10px] uppercase tracking-widest ${getValueColor(line.value)}`}>
+                <span className="ml-auto shrink-0 text-[10px] uppercase tracking-widest" style={valueStyle}>
                   {line.value}
                 </span>
               )}
@@ -151,3 +164,4 @@ export function NeuralMeshBackground() {
     </div>
   );
 }
+
