@@ -66,7 +66,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
     >
       {/* Scroll Progress Bar */}
       <div 
-        className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[hsl(var(--neon-cyan))] via-[hsl(var(--neon-purple))] to-[hsl(var(--neon-cyan))]" 
+        className="absolute bottom-0 left-0 h-[1px] bg-foreground/40" 
         style={{ width: `${scrollProgress}%` }} 
       />
       
@@ -112,7 +112,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
                     <button
                       key={link.label}
                       onClick={() => scrollToSection(link.href)}
-                      className="w-full text-left px-4 py-4 text-lg font-medium text-foreground hover:text-[hsl(var(--neon-cyan))] transition-colors rounded-lg hover:bg-accent/50"
+                      className="w-full text-left px-4 py-4 text-lg font-medium text-foreground hover:text-foreground/70 transition-colors rounded-lg hover:bg-accent/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       {link.label}
@@ -128,7 +128,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
                         onRequestAccess();
                         setMobileMenuOpen(false);
                       }}
-                      className="w-full bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] text-white hover:opacity-90"
+                      className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-none uppercase tracking-wide text-sm"
                     >
                       Request Access
                       <ArrowRight className="w-4 h-4 ml-2" />
