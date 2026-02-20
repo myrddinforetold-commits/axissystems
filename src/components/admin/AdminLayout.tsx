@@ -114,7 +114,7 @@ export function AdminLayout() {
       </div>
 
       {/* Main content */}
-      <main className="md:ml-64 flex-1 p-4 pt-18 md:p-8 md:pt-8">
+      <main className="md:ml-64 flex-1 p-4 pt-20 md:p-8 md:pt-8">
         <Outlet />
       </main>
     </div>
