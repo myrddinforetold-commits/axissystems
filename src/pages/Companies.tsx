@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Building2, LogOut } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 
 interface Company {
   id: string;
@@ -78,7 +79,7 @@ export default function Companies() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <h1 className="text-xl font-bold">Frontier Intelligence</h1>
+          <BrandLogo className="text-xl text-foreground" />
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Sign out
