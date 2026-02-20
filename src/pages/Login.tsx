@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { Button } from '@/components/ui/button';
@@ -78,10 +79,7 @@ export default function Login() {
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center">
             <Link to="/" className="flex-shrink-0">
-              <div className="font-mono text-sm leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                <span className="block text-white">axis</span>
-                <span className="block text-white -mt-1">systems</span>
-              </div>
+              <BrandLogo className="text-sm text-white" />
             </Link>
           </div>
         </nav>

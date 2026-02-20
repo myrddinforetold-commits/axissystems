@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,10 +72,7 @@ export default function Signup() {
       >
         <div className="max-w-6xl mx-auto px-6 py-4">
           <Link to="/">
-            <div className="font-mono text-sm leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              <span className="block text-white">axis</span>
-              <span className="block text-white -mt-1">systems</span>
-            </div>
+            <BrandLogo className="text-sm text-white" />
           </Link>
         </div>
       </header>

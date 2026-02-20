@@ -1,4 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
+import { BrandLogo } from '@/components/BrandLogo';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -33,10 +34,7 @@ export function AdminLayout() {
           {/* Logo */}
           <div className="flex h-20 items-center border-b border-border px-4">
             <Link to="/admin" className="flex items-center gap-2">
-              <div className="font-mono text-sm leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                <span className="block text-foreground">axis</span>
-                <span className="block text-foreground -mt-1">systems</span>
-              </div>
+              <BrandLogo className="text-sm text-foreground" />
               <span className="text-xs font-medium text-primary">ADMIN</span>
             </Link>
           </div>
