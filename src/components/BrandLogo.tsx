@@ -39,7 +39,7 @@ export function BrandLogo({ className }: BrandLogoProps) {
   return (
     <span
       className={cn("font-mono cursor-pointer select-none inline-block overflow-hidden", className)}
-      style={{ fontFamily: "'JetBrains Mono', monospace", maxWidth: isHovered ? '20rem' : '2rem', transition: 'max-width 0.6s ease' }}
+      style={{ fontFamily: "'JetBrains Mono', monospace", maxWidth: isHovered ? '18rem' : '1.75rem', transition: 'max-width 0.6s ease' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

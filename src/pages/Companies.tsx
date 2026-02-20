@@ -81,7 +81,7 @@ export default function Companies() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:py-4">
-          <BrandLogo className="text-lg text-foreground shrink-0" />
+          <BrandLogo className="text-sm text-foreground shrink-0" />
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {isAdmin && (
               <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="shrink-0">
