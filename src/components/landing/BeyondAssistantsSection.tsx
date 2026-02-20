@@ -15,7 +15,7 @@ const comparisons = [
       "It executes when conditions are met. Rigid by design. It cannot reason about context, adapt to changing priorities, or handle ambiguity.",
   },
   {
-    label: "Axis Systems",
+    label: "Frontier Intelligence",
     verb: "operates.",
     description:
       "Roles maintain ongoing responsibility. They carry context forward, coordinate across functions, and continue working between sessions.",

@@ -29,7 +29,7 @@ export function ProductSection() {
       
       <div className="max-w-6xl mx-auto relative">
         <h2 className="text-2xl md:text-3xl font-medium text-foreground text-center mb-16 opacity-0 animate-fade-in font-mono" style={{ animationDelay: "0.1s", fontFamily: "'JetBrains Mono', monospace" }}>
-          What Axis Systems provides
+          What Frontier Intelligence provides
         </h2>
         <div className="grid md:grid-cols-3 gap-12 md:gap-8">
           {features.map((feature, index) => (

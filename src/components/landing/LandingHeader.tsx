@@ -78,8 +78,8 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               "text-sm sm:text-base tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-tight font-mono",
               isScrolled ? "text-foreground" : "text-white"
             )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              <span>axis</span>
-              <span>systems</span>
+              <span>frontier</span>
+              <span>intelligence</span>
             </span>
           </Link>
 
@@ -101,8 +101,8 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
                 {/* Mobile Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
                   <span className="shrink-0 text-sm tracking-tight text-foreground flex flex-col leading-tight font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    <span>axis</span>
-                    <span>systems</span>
+                    <span>frontier</span>
+                    <span>intelligence</span>
                   </span>
                 </div>
                 

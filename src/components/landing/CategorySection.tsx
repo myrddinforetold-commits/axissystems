@@ -39,7 +39,7 @@ export function CategorySection() {
           )}
           style={{ transitionDelay: "200ms" }}
         >
-          Axis Systems assigns responsibilities to persistent AI roles inside your company structure.
+          Frontier Intelligence assigns responsibilities to persistent AI roles inside your company structure.
         </p>
 
         {/* Role pills with staggered reveal */}
