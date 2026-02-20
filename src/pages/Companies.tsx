@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Building2, LogOut } from 'lucide-react';
+import { Plus, Building2, LogOut, Shield } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 
 interface Company {
@@ -17,6 +18,7 @@ interface Company {
 export default function Companies() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { isAdmin } = useAdminStatus();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,10 +82,18 @@ export default function Companies() {
       <header className="border-b">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:py-4">
           <BrandLogo className="text-lg text-foreground shrink-0" />
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="shrink-0">
-            <LogOut className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Sign out</span>
-          </Button>
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {isAdmin && (
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="shrink-0">
+                <Shield className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Admin</span>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="shrink-0">
+              <LogOut className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign out</span>
+            </Button>
+          </div>
         </div>
       </header>
 
