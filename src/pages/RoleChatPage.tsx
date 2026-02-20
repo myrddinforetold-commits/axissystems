@@ -382,15 +382,15 @@ export default function RoleChatPage() {
       />
 
       {/* Inspection Mode Banner */}
-      <div className="border-b border-border bg-muted/30 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Eye className="h-4 w-4" />
-          <span>Inspection Mode</span>
-          <span className="text-xs">— Chat is for auditing role activity. Govern via Workflow.</span>
+      <div className="border-b border-border bg-muted/30 px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+          <Eye className="h-4 w-4 shrink-0" />
+          <span className="shrink-0">Inspection Mode</span>
+          <span className="text-xs hidden sm:inline">— Chat is for auditing role activity. Govern via Workflow.</span>
         </div>
         <Badge 
           variant={role.workflow_status === 'awaiting_approval' ? 'destructive' : 'secondary'}
-          className="text-xs"
+          className="text-xs shrink-0"
         >
           {role.workflow_status === 'idle' && 'Idle'}
           {role.workflow_status === 'in_task' && 'Working'}

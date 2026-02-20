@@ -149,27 +149,33 @@ export default function CompanyShell() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/companies')}>
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/companies')} className="shrink-0 hidden sm:flex">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Companies
             </Button>
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              <span className="font-semibold">{company.name}</span>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/companies')} className="shrink-0 sm:hidden">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 className="h-5 w-5 shrink-0" />
+              <span className="font-semibold truncate">{company.name}</span>
               {userRole && (
-                <span className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
+                <span className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground shrink-0 hidden sm:inline">
                   {userRole === 'owner' ? 'Owner' : 'Member'}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden sm:flex">
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleSignOut} className="sm:hidden">
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -180,50 +186,55 @@ export default function CompanyShell() {
         onOpenChange={setNotificationPanelOpen} 
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="team" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Team
-              </TabsTrigger>
-              <TabsTrigger value="roles" className="flex items-center gap-2">
-                <Bot className="h-4 w-4" />
-                Roles
-              </TabsTrigger>
-              {isOwner && (
-                <TabsTrigger value="workflow" className="flex items-center gap-2">
-                  <Activity className="h-4 w-4" />
-                  Workflow
-                  {pendingWorkflowCount > 0 && (
-                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
-                      {pendingWorkflowCount}
-                    </Badge>
-                  )}
+      <main className="mx-auto max-w-5xl px-4 py-4 sm:py-8">
+        <Tabs defaultValue="dashboard" className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <TabsList className="inline-flex w-auto">
+                <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                  <span className="sm:hidden">Home</span>
                 </TabsTrigger>
-              )}
-              {isOwner && (
-                <TabsTrigger value="analytics" className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Analytics
+                <TabsTrigger value="team" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
+                  <Users className="h-4 w-4" />
+                  Team
                 </TabsTrigger>
-              )}
-              {isOwner && (
-                <TabsTrigger value="settings" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
+                <TabsTrigger value="roles" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
+                  <Bot className="h-4 w-4" />
+                  Roles
                 </TabsTrigger>
-              )}
-            </TabsList>
+                {isOwner && (
+                  <TabsTrigger value="workflow" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
+                    <Activity className="h-4 w-4" />
+                    <span className="hidden sm:inline">Workflow</span>
+                    <span className="sm:hidden">Flow</span>
+                    {pendingWorkflowCount > 0 && (
+                      <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs flex items-center justify-center">
+                        {pendingWorkflowCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                )}
+                {isOwner && (
+                  <TabsTrigger value="analytics" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Analytics</span>
+                  </TabsTrigger>
+                )}
+                {isOwner && (
+                  <TabsTrigger value="settings" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Settings</span>
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </div>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => navigate(`/companies/${company.id}/outputs`)}
+              className="shrink-0 self-start sm:self-auto"
             >
               <Library className="mr-2 h-4 w-4" />
               Outputs Library
