@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,55 @@ const navLinks = [
   { label: "How It Works", href: "#how-it-works" },
 ];
 
+function BrandLogo({ className }: { className?: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [displayText, setDisplayText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fullText = "rontier Intelligence";
+
+  useEffect(() => {
+    if (isHovered && !isTyping) {
+      setIsTyping(true);
+      let i = 0;
+      const type = () => {
+        if (i <= fullText.length) {
+          setDisplayText(fullText.slice(0, i));
+          i++;
+          timeoutRef.current = setTimeout(type, 30);
+        } else {
+          setIsTyping(false);
+        }
+      };
+      type();
+    } else if (!isHovered) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setIsTyping(false);
+      setDisplayText("");
+    }
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [isHovered]);
+
+  return (
+    <span
+      className={cn("font-mono cursor-pointer select-none whitespace-nowrap", className)}
+      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <span className="font-semibold">FI</span>
+      {displayText && (
+        <span className="font-light">
+          <span>: F</span>{displayText}
+        </span>
+      )}
+      {isTyping && <span className="animate-pulse ml-0.5">|</span>}
+    </span>
+  );
+}
+
 export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -27,17 +76,12 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-      
-      // Update scroll progress
       setScrollProgress((currentScrollY / scrollHeight) * 100);
-      
-      // Hide/show header based on scroll direction
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
         setIsVisible(false);
       } else {
         setIsVisible(true);
       }
-      
       setIsScrolled(currentScrollY > 50);
       setLastScrollY(currentScrollY);
     };
@@ -64,7 +108,6 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
           : "bg-black"
       )}
     >
-      {/* Scroll Progress Bar */}
       <div 
         className="absolute bottom-0 left-0 h-[1px] bg-foreground/40" 
         style={{ width: `${scrollProgress}%` }} 
@@ -72,15 +115,11 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Left: Logo */}
-          <Link to="/" className="group shrink-0">
-            <span className={cn(
-              "text-sm sm:text-base tracking-tight transition-all duration-300 group-hover:opacity-80 flex flex-col leading-tight font-mono",
+          <Link to="/" className="shrink-0">
+            <BrandLogo className={cn(
+              "text-sm sm:text-base tracking-tight transition-colors duration-300",
               isScrolled ? "text-foreground" : "text-white"
-            )} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              <span>frontier</span>
-              <span>intelligence</span>
-            </span>
+            )} />
           </Link>
 
           {/* Right: Hamburger Menu - Always visible */}
@@ -100,10 +139,7 @@ export function LandingHeader({ onRequestAccess, showCTA = true }: LandingHeader
               <div className="flex flex-col h-full">
                 {/* Mobile Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border/50">
-                  <span className="shrink-0 text-sm tracking-tight text-foreground flex flex-col leading-tight font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    <span>frontier</span>
-                    <span>intelligence</span>
-                  </span>
+                  <BrandLogo className="text-sm tracking-tight text-foreground" />
                 </div>
                 
                 {/* Nav Links */}

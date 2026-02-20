@@ -102,10 +102,9 @@ export function LandingFooter() {
         <div className="py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-6">
-            <Link to="/" className="inline-block group">
-              <span className="text-base md:text-lg tracking-tight text-white transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                <span>frontier</span>
-                <span className="-mt-1.5">intelligence</span>
+            <Link to="/" className="inline-block">
+              <span className="text-base md:text-lg tracking-tight text-white font-mono font-semibold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                FI
               </span>
             </Link>
             <p className="text-white/50 max-w-xs leading-relaxed">
