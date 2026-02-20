@@ -104,8 +104,8 @@ export function LandingFooter() {
           <div className="lg:col-span-2 space-y-6">
             <Link to="/" className="inline-block group">
               <span className="text-base md:text-lg tracking-tight text-white transition-all duration-300 group-hover:opacity-80 flex flex-col leading-none font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                <span>axis</span>
-                <span className="-mt-1.5">systems</span>
+                <span>frontier</span>
+                <span className="-mt-1.5">intelligence</span>
               </span>
             </Link>
             <p className="text-white/50 max-w-xs leading-relaxed">
@@ -197,7 +197,7 @@ export function LandingFooter() {
 
           {/* Copyright */}
           <p className="text-sm text-white/40">
-            © {new Date().getFullYear()} Axis Systems. All rights reserved.
+            © {new Date().getFullYear()} Frontier Intelligence. All rights reserved.
           </p>
         </div>
       </div>

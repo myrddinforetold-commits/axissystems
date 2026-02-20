@@ -168,7 +168,7 @@ export default function AdminSettings() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Platform</p>
-              <p className="font-medium">Axis Systems</p>
+              <p className="font-medium">Frontier Intelligence</p>
             </div>
             <div>
               <p className="text-muted-foreground">Version</p>

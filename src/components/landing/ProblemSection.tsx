@@ -35,7 +35,7 @@ export function ProblemSection() {
               className: "",
             },
             {
-              text: "Axis Systems changes that relationship.",
+              text: "Frontier Intelligence changes that relationship.",
               delay: "450ms",
               className: "text-foreground font-light",
             },

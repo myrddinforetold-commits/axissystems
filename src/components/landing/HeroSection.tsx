@@ -45,7 +45,7 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
           className="mt-8 text-base md:text-lg max-w-2xl mx-auto leading-relaxed opacity-0 animate-fade-in-up"
           style={{ color: "hsla(220,15%,60%,1)", animationDelay: "0.55s", animationFillMode: "forwards" }}
         >
-          Axis Systems introduces persistent AI roles that plan, coordinate, and execute operational work — under your approval.
+          Frontier Intelligence introduces persistent AI roles that plan, coordinate, and execute operational work — under your approval.
         </p>
 
         {/* CTAs */}

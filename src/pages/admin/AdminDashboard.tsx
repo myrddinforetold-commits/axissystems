@@ -99,7 +99,7 @@ export default function AdminDashboard() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
         <p className="text-muted-foreground">
-          Overview of your Axis Systems platform
+          Overview of your Frontier Intelligence platform
         </p>
       </div>
 

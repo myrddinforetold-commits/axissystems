@@ -6,7 +6,7 @@ const steps = [
     number: "01",
     title: "Define your company structure",
     description: "Set the context, responsibilities, and operating boundaries for your organization.",
-    detail: "Axis Systems builds a persistent understanding of your company — not a blank slate every session.",
+    detail: "Frontier Intelligence builds a persistent understanding of your company — not a blank slate every session.",
   },
   {
     number: "02",
@@ -123,7 +123,7 @@ export function InteractiveTimeline() {
         {/* Callout */}
         <div className="mt-16 ml-14 md:ml-24 max-w-2xl border-l-2 border-border/30 pl-6">
           <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
-            Unlike session-based tools, Axis Systems maintains operational state continuously. Roles know what they were doing before you returned.
+            Unlike session-based tools, Frontier Intelligence maintains operational state continuously. Roles know what they were doing before you returned.
           </p>
         </div>
       </div>
