@@ -38,18 +38,20 @@ export function BrandLogo({ className }: BrandLogoProps) {
 
   return (
     <span
-      className={cn("font-mono cursor-pointer select-none whitespace-nowrap", className)}
-      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      className={cn("font-mono cursor-pointer select-none inline-block overflow-hidden", className)}
+      style={{ fontFamily: "'JetBrains Mono', monospace", maxWidth: isHovered ? '20rem' : '2rem', transition: 'max-width 0.6s ease' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <span className="font-semibold">FI</span>
-      {displayText && (
-        <span className="font-light">
-          <span>: F</span>{displayText}
-        </span>
-      )}
-      {isTyping && <span className="animate-pulse ml-0.5">|</span>}
+      <span className="whitespace-nowrap">
+        <span className="font-semibold">FI</span>
+        {displayText && (
+          <span className="font-light">
+            <span>: F</span>{displayText}
+          </span>
+        )}
+        {isTyping && <span className="animate-pulse ml-0.5">|</span>}
+      </span>
     </span>
   );
 }
