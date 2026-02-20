@@ -78,22 +78,22 @@ export default function Companies() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <BrandLogo className="text-xl text-foreground" />
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:py-4">
+          <BrandLogo className="text-lg text-foreground shrink-0" />
+          <Button variant="ghost" size="sm" onClick={handleSignOut} className="shrink-0">
+            <LogOut className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Sign out</span>
           </Button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Your Companies</h2>
-            <p className="text-muted-foreground">Select a company or create a new one</p>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Your Companies</h2>
+            <p className="text-sm text-muted-foreground">Select a company or create a new one</p>
           </div>
-          <Button onClick={() => navigate('/companies/new')}>
+          <Button onClick={() => navigate('/companies/new')} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             New Company
           </Button>
