@@ -19,7 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -29,10 +28,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Search, Eye, Pin, Download, Bot, CheckCircle2, XCircle, AlertTriangle, Building2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Search,
+  Eye,
+  Pin,
+  Download,
+  Bot,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Building2,
+  Link2,
+  FileText,
+} from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface TaskWithOutput {
   id: string;
@@ -45,11 +58,62 @@ interface TaskWithOutput {
   role_id: string;
   role_name: string;
   latest_output: string | null;
+  artifacts: OutputArtifact[];
+  artifact_storage_bucket: string;
 }
 
 interface Role {
   id: string;
   name: string;
+}
+
+interface OutputArtifact {
+  filename: string;
+  mime_type: string;
+  size_bytes?: number;
+  storage_path?: string;
+  external_url?: string;
+}
+
+function parseArtifacts(data: unknown): {
+  artifacts: OutputArtifact[];
+  artifactStorageBucket: string;
+} {
+  const payload =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null;
+  const artifactStorageBucket =
+    typeof payload?.artifact_storage_bucket === "string" &&
+    payload.artifact_storage_bucket.trim().length > 0
+      ? payload.artifact_storage_bucket.trim()
+      : "artifacts";
+  const artifacts = Array.isArray(payload?.artifacts)
+    ? payload.artifacts
+        .filter(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            !Array.isArray(item) &&
+            typeof (item as Record<string, unknown>).filename === "string"
+        )
+        .map((item) => {
+          const record = item as Record<string, unknown>;
+          return {
+            filename: String(record.filename),
+            mime_type:
+              typeof record.mime_type === "string" ? record.mime_type : "application/octet-stream",
+            size_bytes:
+              typeof record.size_bytes === "number" ? record.size_bytes : undefined,
+            storage_path:
+              typeof record.storage_path === "string" ? record.storage_path : undefined,
+            external_url:
+              typeof record.external_url === "string" ? record.external_url : undefined,
+          } as OutputArtifact;
+        })
+    : [];
+
+  return { artifacts, artifactStorageBucket };
 }
 
 export default function OutputsLibrary() {
@@ -103,10 +167,37 @@ export default function OutputsLibrary() {
           roles!inner(name)
         `)
         .eq("company_id", companyId)
+        .eq("status", "completed")
         .order("updated_at", { ascending: false })
         .limit(100);
 
       // Fetch latest output for each task
+      const taskIds = (tasksData || []).map((task) => task.id);
+      const outputActionsByTask = new Map<
+        string,
+        { artifacts: OutputArtifact[]; artifactStorageBucket: string }
+      >();
+
+      if (taskIds.length > 0) {
+        const { data: outputActionsData } = await supabase
+          .from("output_actions")
+          .select("task_id, action_data, updated_at")
+          .eq("company_id", companyId)
+          .eq("status", "completed")
+          .in("task_id", taskIds)
+          .order("updated_at", { ascending: false });
+
+        for (const action of outputActionsData || []) {
+          if (outputActionsByTask.has(action.task_id)) continue;
+          const { artifacts, artifactStorageBucket } = parseArtifacts(action.action_data);
+          if (artifacts.length === 0) continue;
+          outputActionsByTask.set(action.task_id, {
+            artifacts,
+            artifactStorageBucket,
+          });
+        }
+      }
+
       const tasksWithOutputs: TaskWithOutput[] = await Promise.all(
         (tasksData || []).map(async (task) => {
           const { data: attempt } = await supabase
@@ -128,6 +219,9 @@ export default function OutputsLibrary() {
             role_id: task.role_id,
             role_name: (task.roles as any)?.name || "Unknown",
             latest_output: attempt?.model_output || null,
+            artifacts: outputActionsByTask.get(task.id)?.artifacts || [],
+            artifact_storage_bucket:
+              outputActionsByTask.get(task.id)?.artifactStorageBucket || "artifacts",
           };
         })
       );
@@ -186,6 +280,31 @@ export default function OutputsLibrary() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Exported as Markdown");
+  };
+
+  const handleOpenArtifact = async (task: TaskWithOutput, artifact: OutputArtifact) => {
+    if (artifact.external_url) {
+      window.open(artifact.external_url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (!artifact.storage_path) {
+      toast.error("No file path available for this artifact");
+      return;
+    }
+
+    const { data, error } = await supabase.storage
+      .from(task.artifact_storage_bucket || "artifacts")
+      .createSignedUrl(artifact.storage_path, 60 * 10, {
+        download: artifact.filename,
+      });
+
+    if (error || !data?.signedUrl) {
+      toast.error("Failed to open artifact");
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
   const getStatusIcon = (status: string) => {
@@ -297,9 +416,15 @@ export default function OutputsLibrary() {
                     <TableCell>
                       <div>
                         <p className="font-medium">{task.title}</p>
+                        {task.artifacts.length > 0 && (
+                          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <FileText className="h-3 w-3" />
+                            {task.artifacts.length} artifact{task.artifacts.length === 1 ? "" : "s"}
+                          </div>
+                        )}
                         {task.completion_summary && (
                           <div className="text-xs text-muted-foreground line-clamp-1 prose prose-xs dark:prose-invert max-w-none">
-                            <ReactMarkdown>{task.completion_summary}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.completion_summary}</ReactMarkdown>
                           </div>
                         )}
                       </div>
@@ -339,6 +464,16 @@ export default function OutputsLibrary() {
                             >
                               <Download className="h-4 w-4" />
                             </Button>
+                            {task.artifacts[0] && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenArtifact(task, task.artifacts[0])}
+                                title="Open artifact"
+                              >
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -378,23 +513,54 @@ export default function OutputsLibrary() {
               </div>
 
               {selectedTask.completion_summary && (
-                <div className="flex-shrink-0 rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none">
+                <div className="flex-shrink-0 rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
                   <strong>Summary:</strong>
-                  <ReactMarkdown>{selectedTask.completion_summary}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedTask.completion_summary}</ReactMarkdown>
                 </div>
               )}
 
-              <ScrollArea className="flex-1 min-h-[200px] rounded-md border p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto rounded-md border p-4 pr-3">
                 {selectedTask.latest_output ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{selectedTask.latest_output}</ReactMarkdown>
+                  <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedTask.latest_output}</ReactMarkdown>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
                     No output available for this task
                   </div>
                 )}
-              </ScrollArea>
+              </div>
+
+              {selectedTask.artifacts.length > 0 && (
+                <div className="flex-shrink-0 rounded-md border p-3">
+                  <div className="mb-2 text-sm font-medium">Artifacts</div>
+                  <div className="space-y-2">
+                    {selectedTask.artifacts.map((artifact, index) => (
+                      <div
+                        key={`${artifact.filename}-${index}`}
+                        className="flex items-center justify-between gap-3 rounded border px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{artifact.filename}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {artifact.mime_type}
+                            {artifact.size_bytes ? ` • ${Math.ceil(artifact.size_bytes / 1024)} KB` : ""}
+                            {artifact.external_url ? " • external" : ""}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenArtifact(selectedTask, artifact)}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Open
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex-shrink-0 flex justify-end gap-2">
                 {selectedTask.latest_output && (
