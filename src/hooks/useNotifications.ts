@@ -15,25 +15,60 @@ export interface Notification {
   created_at: string;
 }
 
-export function useNotifications() {
+interface UseNotificationsOptions {
+  companyId?: string | null;
+  importantOnly?: boolean;
+}
+
+const IMPORTANT_WORKFLOW_SUMMARY_PATTERNS = [
+  /requesting approval:\s*review output:/i,
+  /requesting approval:\s*objective completion review:/i,
+  /requesting approval:\s*external/i,
+  /submitted output for review:/i,
+  /review required/i,
+];
+
+function isImportantNotification(notification: Notification): boolean {
+  if (notification.type === 'system_alert' || notification.type === 'invitation') {
+    return true;
+  }
+
+  if (notification.type === 'workflow_request') {
+    const text = `${notification.title} ${notification.message}`;
+    return IMPORTANT_WORKFLOW_SUMMARY_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  return false;
+}
+
+export function useNotifications(options: UseNotificationsOptions = {}) {
+  const { companyId, importantOnly = true } = options;
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications', user?.id],
+    queryKey: ['notifications', user?.id, companyId, importantOnly],
     queryFn: async () => {
       if (!user?.id) return [];
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
+
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       
       if (error) throw error;
-      return data as Notification[];
+      const allNotifications = data as Notification[];
+      if (!importantOnly) return allNotifications;
+      return allNotifications.filter(isImportantNotification);
     },
     enabled: !!user?.id,
   });
@@ -60,12 +95,17 @@ export function useNotifications() {
   const markAllAsRead = useMutation({
     mutationFn: async () => {
       if (!user?.id) return;
-      
+
+      const unreadIds = notifications
+        .filter((notification) => !notification.is_read)
+        .map((notification) => notification.id);
+
+      if (unreadIds.length === 0) return;
+
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
+        .in('id', unreadIds);
       
       if (error) throw error;
     },

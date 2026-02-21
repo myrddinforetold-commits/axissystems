@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -14,10 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Mail, 
-  Play, 
-  SkipForward, 
+import {
+  Mail,
+  Play,
+  SkipForward,
   Lightbulb,
   ArrowRight,
   MessageSquare,
@@ -26,18 +27,10 @@ import {
   ExternalLink,
   Copy,
   ClipboardCheck,
-  Users,
-  BookmarkPlus,
-  Clock,
-  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { WorkflowRequest } from '@/hooks/useWorkflowRequests';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import OutputActionCard from './OutputActionCard';
-import DelegateToRoleDialog from './DelegateToRoleDialog';
 
 interface RequestReviewDialogProps {
   request: WorkflowRequest | null;
@@ -82,7 +75,6 @@ const typeConfig = {
   },
 };
 
-// Helper to parse task content from JSON
 const parseTaskContent = (content: string) => {
   try {
     const parsed = JSON.parse(content);
@@ -102,7 +94,6 @@ const parseTaskContent = (content: string) => {
   return null;
 };
 
-// Helper to parse review_output content
 const parseReviewOutputContent = (content: string) => {
   try {
     const parsed = JSON.parse(content);
@@ -123,24 +114,23 @@ const parseReviewOutputContent = (content: string) => {
   return null;
 };
 
-// Format task as implementation prompt for copying
 const formatAsImplementationPrompt = (request: WorkflowRequest): string | null => {
   if (request.request_type !== 'start_task' && request.request_type !== 'suggest_next_task') {
     return null;
   }
-  
+
   const taskContent = parseTaskContent(request.proposed_content);
   const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Unknown';
-  
+
   if (!taskContent) {
     return `Implement the following task:\n\n${request.summary}\n\n---\n\n${request.proposed_content}`;
   }
-  
+
   let prompt = `## Implementation Request from ${roleName}\n\n`;
   prompt += `### Task: ${taskContent.title || request.summary}\n\n`;
   prompt += `### Description\n${taskContent.description || 'No description provided'}\n\n`;
   prompt += `### Acceptance Criteria\n${taskContent.completion_criteria || 'No criteria specified'}\n\n`;
-  
+
   if (taskContent.affected_files?.length) {
     prompt += `### Files to Modify\n${taskContent.affected_files.join(', ')}\n\n`;
   }
@@ -150,9 +140,9 @@ const formatAsImplementationPrompt = (request: WorkflowRequest): string | null =
   if (taskContent.implementation_notes) {
     prompt += `### Implementation Notes\n${taskContent.implementation_notes}\n\n`;
   }
-  
+
   prompt += `---\nPlease implement this task and verify the acceptance criteria are met.`;
-  
+
   return prompt;
 };
 
@@ -166,15 +156,11 @@ export default function RequestReviewDialog({
   isProcessing,
 }: RequestReviewDialogProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [editedContent, setEditedContent] = useState('');
   const [editedTask, setEditedTask] = useState({ title: '', description: '', completion_criteria: '' });
   const [reviewNotes, setReviewNotes] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingTask, setIsEditingTask] = useState(false);
-  const [showActionSelector, setShowActionSelector] = useState(false);
-  const [showDelegateDialog, setShowDelegateDialog] = useState(false);
-  const [actionProcessing, setActionProcessing] = useState(false);
 
   if (!request) return null;
 
@@ -196,18 +182,11 @@ export default function RequestReviewDialog({
       setReviewNotes('');
       setIsEditing(false);
       setIsEditingTask(false);
-      setShowActionSelector(false);
     }
     onOpenChange(newOpen);
   };
 
   const handleApprove = async () => {
-    // For review_output, show action selector instead of directly approving
-    if (isReviewOutputType && !showActionSelector) {
-      setShowActionSelector(true);
-      return;
-    }
-    
     let finalContent: string | undefined;
     if (isEditingTask) {
       finalContent = JSON.stringify(editedTask);
@@ -238,177 +217,6 @@ export default function RequestReviewDialog({
     }
   };
 
-  // Action handlers for review_output
-  const handleCopyToLovable = async () => {
-    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
-    const output = reviewOutputContent?.output || request.proposed_content;
-    
-    const formattedPrompt = `## Implementation Request from ${roleName}
-
-${output}
-
----
-**Completion Criteria:** ${reviewOutputContent?.completion_criteria || 'Complete the implementation as specified above.'}
-
-Please implement this feature/change.`;
-    
-    await navigator.clipboard.writeText(formattedPrompt);
-    toast.success('Copied to clipboard', {
-      description: 'Paste this into Lovable to implement'
-    });
-    
-    // Record action and approve
-    setActionProcessing(true);
-    try {
-      await supabase.from('output_actions').insert({
-        task_id: reviewOutputContent?.task_id || request.source_task_id,
-        company_id: companyId,
-        action_type: 'copy_to_lovable',
-        action_data: {
-          task_title: reviewOutputContent?.task_title || request.summary,
-          role_name: roleName,
-        },
-        status: 'completed',
-        completed_by: user?.id,
-        completed_at: new Date().toISOString(),
-      } as any);
-      
-      await onApprove(undefined, reviewNotes || undefined);
-      handleOpenChange(false);
-    } finally {
-      setActionProcessing(false);
-    }
-  };
-
-  const handleDelegateToRole = async (targetRoleId: string, instructions: string) => {
-    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
-    const output = reviewOutputContent?.output || request.proposed_content;
-    
-    setActionProcessing(true);
-    try {
-      // Get target role name
-      const { data: targetRole } = await supabase
-        .from('roles')
-        .select('name, display_name')
-        .eq('id', targetRoleId)
-        .single();
-
-      // Create follow-up task
-      const taskDescription = instructions 
-        ? `${instructions}\n\n---\n**Source Output:**\n${output}`
-        : `Execute the following work:\n\n${output}`;
-        
-      const { error: taskError } = await supabase.from('tasks').insert({
-        role_id: targetRoleId,
-        company_id: companyId,
-        assigned_by: user?.id,
-        title: `Execute: ${reviewOutputContent?.task_title || request.summary}`,
-        description: taskDescription,
-        completion_criteria: 'Successfully execute the plan outlined in the source output.',
-        status: 'pending',
-      });
-      
-      if (taskError) throw taskError;
-
-      // Record action
-      await supabase.from('output_actions').insert({
-        task_id: reviewOutputContent?.task_id || request.source_task_id,
-        company_id: companyId,
-        action_type: 'create_followup',
-        action_data: {
-          task_title: reviewOutputContent?.task_title || request.summary,
-          target_role_id: targetRoleId,
-          target_role_name: targetRole?.display_name || targetRole?.name,
-          role_name: roleName,
-        },
-        status: 'completed',
-        completed_by: user?.id,
-        completed_at: new Date().toISOString(),
-      } as any);
-      
-      toast.success(`Task delegated to ${targetRole?.display_name || targetRole?.name}`);
-      await onApprove(undefined, reviewNotes || undefined);
-      handleOpenChange(false);
-    } catch (error) {
-      toast.error('Failed to delegate task');
-    } finally {
-      setActionProcessing(false);
-    }
-  };
-
-  const handlePinToMemory = async () => {
-    const output = reviewOutputContent?.completion_summary || reviewOutputContent?.output || request.proposed_content;
-    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
-    
-    setActionProcessing(true);
-    try {
-      await supabase.from('company_memory').insert({
-        company_id: companyId,
-        content: output.slice(0, 2000), // Limit to 2000 chars
-        label: reviewOutputContent?.task_title || request.summary,
-        source_role_id: request.requesting_role_id,
-        pinned_by: user?.id,
-      });
-
-      await supabase.from('output_actions').insert({
-        task_id: reviewOutputContent?.task_id || request.source_task_id,
-        company_id: companyId,
-        action_type: 'pin_to_memory',
-        action_data: {
-          task_title: reviewOutputContent?.task_title || request.summary,
-          role_name: roleName,
-        },
-        status: 'completed',
-        completed_by: user?.id,
-        completed_at: new Date().toISOString(),
-      } as any);
-      
-      toast.success('Pinned to company memory');
-      await onApprove(undefined, reviewNotes || undefined);
-      handleOpenChange(false);
-    } catch (error) {
-      toast.error('Failed to pin to memory');
-    } finally {
-      setActionProcessing(false);
-    }
-  };
-
-  const handleMarkExternal = async () => {
-    const output = reviewOutputContent?.completion_summary || reviewOutputContent?.output || request.proposed_content;
-    const roleName = request.requesting_role?.display_name || request.requesting_role?.name || 'Role';
-    
-    setActionProcessing(true);
-    try {
-      await supabase.from('output_actions').insert({
-        task_id: reviewOutputContent?.task_id || request.source_task_id,
-        company_id: companyId,
-        action_type: 'mark_external',
-        action_data: {
-          task_title: reviewOutputContent?.task_title || request.summary,
-          output_summary: output.slice(0, 1000),
-          role_name: roleName,
-        },
-        status: 'pending',
-        notes: reviewNotes || null,
-      } as any);
-      
-      toast.success('Marked for external action', {
-        description: 'This will appear in your External Actions queue'
-      });
-      await onApprove(undefined, reviewNotes || undefined);
-      handleOpenChange(false);
-    } catch (error) {
-      toast.error('Failed to mark as external action');
-    } finally {
-      setActionProcessing(false);
-    }
-  };
-
-  const handleApproveWithoutAction = async () => {
-    await onApprove(undefined, reviewNotes || undefined);
-    handleOpenChange(false);
-  };
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -427,7 +235,6 @@ Please implement this feature/change.`;
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* From/To section */}
           <div className="flex items-center gap-3 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">From:</span>
@@ -455,13 +262,11 @@ Please implement this feature/change.`;
 
           <Separator />
 
-          {/* Summary */}
           <div>
             <Label className="text-sm text-muted-foreground">Summary</Label>
             <p className="mt-1 text-sm font-medium">{request.summary}</p>
           </div>
 
-          {/* Proposed Content */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <Label className="text-sm text-muted-foreground">
@@ -473,7 +278,7 @@ Please implement this feature/change.`;
                 </Button>
               )}
             </div>
-            
+
             {isEditingTask ? (
               <div className="space-y-3 rounded-md border p-4">
                 <div>
@@ -523,8 +328,8 @@ Please implement this feature/change.`;
                 {reviewOutputContent.completion_summary && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Summary</Label>
-                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>{reviewOutputContent.completion_summary}</ReactMarkdown>
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{reviewOutputContent.completion_summary}</ReactMarkdown>
                     </div>
                   </div>
                 )}
@@ -532,8 +337,8 @@ Please implement this feature/change.`;
                 <div>
                   <Label className="text-xs text-muted-foreground">Task Output</Label>
                   <div className="mt-2 rounded-md border bg-background p-3 max-h-64 overflow-y-auto">
-                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                      <ReactMarkdown>{reviewOutputContent.output}</ReactMarkdown>
+                    <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{reviewOutputContent.output}</ReactMarkdown>
                     </div>
                   </div>
                 </div>
@@ -549,23 +354,22 @@ Please implement this feature/change.`;
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Description</Label>
-                  <p className="text-sm whitespace-pre-wrap">{taskContent.description}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{taskContent.description}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Completion Criteria</Label>
-                  <p className="text-sm whitespace-pre-wrap">{taskContent.completion_criteria}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{taskContent.completion_criteria}</p>
                 </div>
               </div>
             ) : (
               <div className="rounded-md border bg-muted/50 p-4">
-                <pre className="whitespace-pre-wrap text-sm font-mono">
+                <pre className="whitespace-pre-wrap break-words text-sm font-mono">
                   {request.proposed_content}
                 </pre>
               </div>
             )}
           </div>
 
-          {/* Review Notes */}
           {request.status === 'pending' && (
             <div>
               <Label htmlFor="review-notes" className="text-sm text-muted-foreground">
@@ -583,7 +387,6 @@ Please implement this feature/change.`;
             </div>
           )}
 
-          {/* Existing review notes if already reviewed */}
           {request.review_notes && request.status !== 'pending' && (
             <div>
               <Label className="text-sm text-muted-foreground">Review Notes</Label>
@@ -594,56 +397,8 @@ Please implement this feature/change.`;
           )}
         </div>
 
-        {/* Action Selector for review_output */}
-        {showActionSelector && isReviewOutputType && request.status === 'pending' && (
-          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <Label className="text-sm font-medium">What would you like to do with this output?</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <OutputActionCard
-                icon={Copy}
-                title="Implement in Lovable"
-                description="Copy as structured prompt"
-                onClick={handleCopyToLovable}
-                disabled={actionProcessing}
-                variant="primary"
-              />
-              <OutputActionCard
-                icon={Users}
-                title="Delegate to Role"
-                description="Assign follow-up to another role"
-                onClick={() => setShowDelegateDialog(true)}
-                disabled={actionProcessing}
-              />
-              <OutputActionCard
-                icon={BookmarkPlus}
-                title="Save as Reference"
-                description="Pin to company memory"
-                onClick={handlePinToMemory}
-                disabled={actionProcessing}
-              />
-              <OutputActionCard
-                icon={Clock}
-                title="External Action"
-                description="Mark for human follow-up"
-                onClick={handleMarkExternal}
-                disabled={actionProcessing}
-              />
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleApproveWithoutAction}
-              disabled={actionProcessing}
-              className="w-full"
-            >
-              <ChevronRight className="mr-1 h-4 w-4" />
-              Continue without action
-            </Button>
-          </div>
-        )}
-
         <DialogFooter className="gap-2 sm:gap-0">
-          {request.status === 'pending' && !showActionSelector ? (
+          {request.status === 'pending' ? (
             <>
               <Button
                 variant="outline"
@@ -660,17 +415,9 @@ Please implement this feature/change.`;
                 className="bg-primary hover:bg-primary/90"
               >
                 <Check className="mr-1 h-4 w-4" />
-                {isEditing || isEditingTask ? 'Approve with Edits' : isReviewOutputType ? 'Choose Action' : 'Approve'}
+                {isEditing || isEditingTask ? 'Approve with Edits' : 'Approve'}
               </Button>
             </>
-          ) : request.status === 'pending' && showActionSelector ? (
-            <Button
-              variant="outline"
-              onClick={() => setShowActionSelector(false)}
-              disabled={actionProcessing}
-            >
-              Back
-            </Button>
           ) : (
             <div className="flex w-full justify-between">
               {request.status === 'approved' && isTaskType && (
@@ -697,17 +444,6 @@ Please implement this feature/change.`;
           )}
         </DialogFooter>
       </DialogContent>
-
-      {/* Delegate to Role Dialog */}
-      <DelegateToRoleDialog
-        open={showDelegateDialog}
-        onOpenChange={setShowDelegateDialog}
-        onDelegate={handleDelegateToRole}
-        companyId={companyId}
-        sourceRoleId={request.requesting_role_id}
-        sourceOutput={reviewOutputContent?.output || request.proposed_content}
-        isProcessing={actionProcessing}
-      />
     </Dialog>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,8 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { RoleAnalyticsDashboard } from '@/components/analytics/RoleAnalyticsDashboard';
 
+type CompanyTab = 'dashboard' | 'team' | 'roles' | 'workflow' | 'analytics' | 'settings';
+
 interface Company {
   id: string;
   name: string;
@@ -29,10 +31,30 @@ interface Member {
   display_name: string;
 }
 
+function isGovernanceRole(role?: {
+  name?: string | null;
+  display_name?: string | null;
+  authority_level?: string | null;
+} | null): boolean {
+  if (!role) return false;
+  const label = `${role.display_name || ''} ${role.name || ''}`.toLowerCase();
+  if (role.authority_level === 'executive' || role.authority_level === 'orchestrator') return true;
+  return label.includes('ceo') || label.includes('chief of staff');
+}
+
+function getRequestedTab(searchParams: URLSearchParams): CompanyTab {
+  const tab = searchParams.get('tab');
+  if (tab === 'team' || tab === 'roles' || tab === 'workflow' || tab === 'analytics' || tab === 'settings') {
+    return tab;
+  }
+  return 'dashboard';
+}
+
 export default function CompanyShell() {
   const { id } = useParams<{ id: string }>();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [company, setCompany] = useState<Company | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -40,6 +62,7 @@ export default function CompanyShell() {
   const [error, setError] = useState<string | null>(null);
   const [pendingWorkflowCount, setPendingWorkflowCount] = useState(0);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<CompanyTab>(getRequestedTab(searchParams));
 
   useEffect(() => {
     async function fetchCompany() {
@@ -100,14 +123,24 @@ export default function CompanyShell() {
       const currentUserMember = formattedMembers.find((m) => m.user_id === user.id);
       setUserRole(currentUserMember?.role ?? null);
 
-      // Fetch pending workflow requests count
-      const { count } = await supabase
-        .from('workflow_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', id)
-        .eq('status', 'pending');
-      
-      setPendingWorkflowCount(count || 0);
+      const { data: companyRoles } = await supabase
+        .from('roles')
+        .select('id, name, display_name, authority_level')
+        .eq('company_id', id);
+      const governanceRoleIds = (companyRoles || []).filter((role) => isGovernanceRole(role)).map((role) => role.id);
+
+      if (governanceRoleIds.length === 0) {
+        setPendingWorkflowCount(0);
+      } else {
+        const { count } = await supabase
+          .from('workflow_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', id)
+          .eq('status', 'pending')
+          .in('requesting_role_id', governanceRoleIds);
+
+        setPendingWorkflowCount(count || 0);
+      }
 
       setLoading(false);
     }
@@ -115,12 +148,86 @@ export default function CompanyShell() {
     fetchCompany();
   }, [id, user]);
 
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`company-shell-workflow-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'workflow_requests',
+          filter: `company_id=eq.${id}`,
+        },
+        async () => {
+          const { data: companyRoles } = await supabase
+            .from('roles')
+            .select('id, name, display_name, authority_level')
+            .eq('company_id', id);
+          const governanceRoleIds = (companyRoles || []).filter((role) => isGovernanceRole(role)).map((role) => role.id);
+
+          if (governanceRoleIds.length === 0) {
+            setPendingWorkflowCount(0);
+          } else {
+            const { count } = await supabase
+              .from('workflow_requests')
+              .select('*', { count: 'exact', head: true })
+              .eq('company_id', id)
+              .eq('status', 'pending')
+              .in('requesting_role_id', governanceRoleIds);
+
+            setPendingWorkflowCount(count || 0);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
 
   const isOwner = userRole === 'owner';
+
+  useEffect(() => {
+    const requestedTab = getRequestedTab(searchParams);
+    const ownerOnlyTab = requestedTab === 'workflow' || requestedTab === 'analytics' || requestedTab === 'settings';
+
+    if (!isOwner && ownerOnlyTab) {
+      setActiveTab('dashboard');
+      return;
+    }
+
+    setActiveTab(requestedTab);
+  }, [searchParams, isOwner]);
+
+  const handleTabChange = (tab: string) => {
+    const nextTab = tab as CompanyTab;
+    setActiveTab(nextTab);
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextTab === 'dashboard') {
+        next.delete('tab');
+      } else {
+        next.set('tab', nextTab);
+      }
+
+      if (nextTab !== 'workflow') {
+        next.delete('request');
+        next.delete('workflowView');
+      }
+
+      return next;
+    }, { replace: true });
+  };
 
   if (loading) {
     return (
@@ -169,7 +276,7 @@ export default function CompanyShell() {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
+            <NotificationBell onClick={() => setNotificationPanelOpen(true)} companyId={company.id} />
             <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden sm:flex">
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
@@ -180,14 +287,15 @@ export default function CompanyShell() {
           </div>
         </div>
       </header>
-      
-      <NotificationPanel 
-        open={notificationPanelOpen} 
-        onOpenChange={setNotificationPanelOpen} 
+
+      <NotificationPanel
+        open={notificationPanelOpen}
+        onOpenChange={setNotificationPanelOpen}
+        companyId={company.id}
       />
 
       <main className="mx-auto max-w-5xl px-4 py-4 sm:py-8">
-        <Tabs defaultValue="dashboard" className="space-y-4 sm:space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
               <TabsList className="inline-flex w-auto">
@@ -230,9 +338,9 @@ export default function CompanyShell() {
                 )}
               </TabsList>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => navigate(`/companies/${company.id}/outputs`)}
               className="shrink-0 self-start sm:self-auto"
             >
@@ -246,9 +354,9 @@ export default function CompanyShell() {
           </TabsContent>
 
           <TabsContent value="team">
-            <TeamTab 
-              members={members} 
-              currentUserId={user?.id} 
+            <TeamTab
+              members={members}
+              currentUserId={user?.id}
               companyId={company.id}
               companyName={company.name}
               isOwner={isOwner}
@@ -261,7 +369,7 @@ export default function CompanyShell() {
 
           {isOwner && (
             <TabsContent value="workflow">
-              <WorkflowTab companyId={company.id} />
+              <WorkflowTab companyId={company.id} onPendingCountChange={setPendingWorkflowCount} />
             </TabsContent>
           )}
 

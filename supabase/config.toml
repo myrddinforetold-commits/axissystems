@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.role-autonomous-loop]
 verify_jwt = false
+
+[functions.autonomy-tick]
+verify_jwt = false

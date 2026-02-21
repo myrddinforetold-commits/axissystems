@@ -122,6 +122,24 @@ export default function WebhookSettingsTab({ companyId }: WebhookSettingsTabProp
     }
   }
 
+  const integrationPlaybooks = [
+    {
+      lane: 'Development',
+      providers: 'Codex or Claude Code',
+      guidance: 'Use a mark_external webhook to dispatch build tickets and return completion via webhook-callback.',
+    },
+    {
+      lane: 'Marketing',
+      providers: 'Claude Code (recommended) or custom automation endpoint',
+      guidance: 'Route campaign/content execution to external automation and report status/results back to Axis.',
+    },
+    {
+      lane: 'Research',
+      providers: 'Perplexity workflow or research endpoint',
+      guidance: 'Send research briefs/questions externally and return structured findings for review.',
+    },
+  ];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -227,6 +245,31 @@ export default function WebhookSettingsTab({ companyId }: WebhookSettingsTabProp
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Execution Integration Playbooks</CardTitle>
+          <CardDescription>
+            Recommended external tooling by execution lane
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {integrationPlaybooks.map((playbook) => (
+              <div key={playbook.lane} className="rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{playbook.lane}</Badge>
+                  <span className="text-sm font-medium">{playbook.providers}</span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">{playbook.guidance}</p>
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Tip: Use webhook signing secrets and the callback endpoint below so external workers can securely report completion.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

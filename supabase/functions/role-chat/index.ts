@@ -32,6 +32,10 @@ function toOpenAiDone(): Uint8Array {
   return new TextEncoder().encode("data: [DONE]\n\n");
 }
 
+function toSseKeepAlive(): Uint8Array {
+  return new TextEncoder().encode(": keepalive\n\n");
+}
+
 async function loadChatContext(
   supabaseUser: SupabaseClient,
   role: RoleRecord
@@ -229,6 +233,8 @@ serve(async (req) => {
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
 
+    let heartbeat: number | null = null;
+
     const transformedStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const reader = axisResponse.body!.getReader();
@@ -236,6 +242,15 @@ serve(async (req) => {
         let eventName = "";
         let dataLines: string[] = [];
         let doneEmitted = false;
+        const keepAlivePayload = toSseKeepAlive();
+
+        heartbeat = setInterval(() => {
+          try {
+            controller.enqueue(keepAlivePayload);
+          } catch {
+            // Ignore if stream is already closed.
+          }
+        }, 10000) as unknown as number;
 
         const emitDone = () => {
           if (doneEmitted) return;
@@ -327,6 +342,11 @@ serve(async (req) => {
         } catch (error) {
           controller.error(error);
         } finally {
+          if (heartbeat !== null) {
+            clearInterval(heartbeat);
+            heartbeat = null;
+          }
+
           try {
             await reader.cancel();
           } catch {
@@ -347,6 +367,10 @@ serve(async (req) => {
         }
       },
       cancel() {
+        if (heartbeat !== null) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
         return Promise.resolve();
       },
     });

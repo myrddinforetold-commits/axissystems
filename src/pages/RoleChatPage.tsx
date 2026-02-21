@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ import { useTaskExecution } from "@/hooks/useTaskExecution";
 import ChatHeader from "@/components/chat/ChatHeader";
 import ChatMessages from "@/components/chat/ChatMessages";
 import ChatInput from "@/components/chat/ChatInput";
+import AutonomousActivityPanel from "@/components/chat/AutonomousActivityPanel";
 import CompanyMemoryPanel from "@/components/memory/CompanyMemoryPanel";
 import AssignTaskDialog from "@/components/tasks/AssignTaskDialog";
 import TaskPanel from "@/components/tasks/TaskPanel";
@@ -35,6 +36,22 @@ interface RoleObjective {
   title: string;
   description: string;
   status: string;
+}
+
+const AUTONOMOUS_MESSAGE_PATTERNS = [
+  /🤖\s*Autonomous Action:/i,
+  /⚠️\s*Task Blocked/i,
+  /📬\s*Proposed Memo/i,
+  /⏳\s*Awaiting approval/i,
+  /⏸️\s*Objective remains active/i,
+  /Task Already Complete\./i,
+  /Completion Check/i,
+  /Runtime check:/i,
+  /no CEO role found/i,
+];
+
+function isAutonomousMessage(content: string) {
+  return AUTONOMOUS_MESSAGE_PATTERNS.some((pattern) => pattern.test(content));
 }
 
 export default function RoleChatPage() {
@@ -344,6 +361,22 @@ export default function RoleChatPage() {
     }
   }, [activeTask?.status, activeTask?.title, toast]);
 
+  const autonomousMessages = useMemo(
+    () =>
+      messages.filter(
+        (message) => message.sender === "ai" && isAutonomousMessage(message.content || "")
+      ),
+    [messages]
+  );
+
+  const conversationMessages = useMemo(
+    () =>
+      messages.filter(
+        (message) => !(message.sender === "ai" && isAutonomousMessage(message.content || ""))
+      ),
+    [messages]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -415,21 +448,32 @@ export default function RoleChatPage() {
         />
       )}
 
-      {/* Chat - Always visible for inspection */}
-      <ChatMessages 
-        messages={messages} 
-        isLoading={isLoading}
-        pinnedMessageIds={pinnedMessageIds}
-        onPinToMemory={handlePinToMemory}
-        isThinking={isThinking}
-        activeTools={activeTools}
-        memoryRefs={memoryRefs}
-        roleName={role.name}
-      />
-      <ChatInput
-        onSend={sendMessage}
-        isStreaming={isStreaming}
-      />
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-h-0 flex flex-col">
+          <ChatMessages 
+            messages={conversationMessages} 
+            isLoading={isLoading}
+            pinnedMessageIds={pinnedMessageIds}
+            onPinToMemory={handlePinToMemory}
+            isThinking={isThinking}
+            activeTools={activeTools}
+            memoryRefs={memoryRefs}
+            roleName={role.name}
+          />
+          <ChatInput
+            onSend={sendMessage}
+            isStreaming={isStreaming}
+          />
+        </div>
+
+        <div className="hidden lg:block min-h-0">
+          <AutonomousActivityPanel
+            messages={autonomousMessages}
+            tasks={tasks}
+            onOpenTasks={() => setShowTaskPanel(true)}
+          />
+        </div>
+      </div>
       
       {/* Memory Panel */}
       {companyId && (

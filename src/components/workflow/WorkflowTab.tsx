@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,16 +18,22 @@ import SystemAlertsTab from './SystemAlertsTab';
 
 interface WorkflowTabProps {
   companyId: string;
+  onPendingCountChange?: (count: number) => void;
 }
 
-export default function WorkflowTab({ companyId }: WorkflowTabProps) {
+export default function WorkflowTab({ companyId, onPendingCountChange }: WorkflowTabProps) {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedRequest, setSelectedRequest] = useState<WorkflowRequest | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isKickingOff, setIsKickingOff] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dlqCount, setDlqCount] = useState(0);
   const [activeMainTab, setActiveMainTab] = useState('requests');
+  const [activeRequestsTab, setActiveRequestsTab] = useState<'pending' | 'resolved'>(
+    searchParams.get('workflowView') === 'resolved' ? 'resolved' : 'pending'
+  );
+  const hasAutoSelectedDefaultTab = useRef(false);
   
   const {
     requests,
@@ -68,10 +75,72 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const resolvedRequests = requests.filter(r => r.status !== 'pending');
+  const linkedRequestId = searchParams.get('request');
+
+  useEffect(() => {
+    onPendingCountChange?.(pendingCount);
+  }, [pendingCount, onPendingCountChange]);
 
   const idleActivatedRoles = rolesWithStatus.filter(
     (role) => (role as any).is_activated && role.workflow_status === 'idle'
   );
+
+  useEffect(() => {
+    const requestedView = searchParams.get('workflowView');
+    if (requestedView === 'pending' || requestedView === 'resolved') {
+      setActiveRequestsTab(requestedView);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (linkedRequestId && requests.length > 0) {
+      const linkedRequest = requests.find((r) => r.id === linkedRequestId);
+      if (!linkedRequest) return;
+
+      const nextTab = linkedRequest.status === 'pending' ? 'pending' : 'resolved';
+      if (activeRequestsTab !== nextTab) {
+        setActiveRequestsTab(nextTab);
+      }
+      if (!selectedRequest || selectedRequest.id !== linkedRequest.id) {
+        setSelectedRequest(linkedRequest);
+      }
+      return;
+    }
+
+    if (!hasAutoSelectedDefaultTab.current && pendingRequests.length === 0 && resolvedRequests.length > 0) {
+      setActiveRequestsTab('resolved');
+      hasAutoSelectedDefaultTab.current = true;
+    }
+  }, [
+    linkedRequestId,
+    requests,
+    pendingRequests.length,
+    resolvedRequests.length,
+    activeRequestsTab,
+    selectedRequest,
+  ]);
+
+  const setRequestTab = (tab: 'pending' | 'resolved', clearRequest = false) => {
+    setActiveRequestsTab(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('workflowView', tab);
+      if (clearRequest) {
+        next.delete('request');
+      }
+      return next;
+    }, { replace: true });
+  };
+
+  const handleViewRequest = (request: WorkflowRequest) => {
+    setSelectedRequest(request);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('workflowView', request.status === 'pending' ? 'pending' : 'resolved');
+      next.set('request', request.id);
+      return next;
+    }, { replace: true });
+  };
 
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => {
@@ -328,7 +397,10 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
               </Button>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="pending">
+              <Tabs
+                value={activeRequestsTab}
+                onValueChange={(value) => setRequestTab(value === 'resolved' ? 'resolved' : 'pending', true)}
+              >
                 <TabsList className="mb-4">
                   <TabsTrigger value="pending" className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
@@ -408,7 +480,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
                           request={request}
                           onApprove={() => handleQuickApprove(request)}
                           onDeny={() => handleQuickDeny(request)}
-                          onView={() => setSelectedRequest(request)}
+                          onView={() => handleViewRequest(request)}
                           isProcessing={processingIds.has(request.id)}
                           isSelected={selectedIds.has(request.id)}
                           onToggleSelect={() => toggleSelection(request.id)}
@@ -433,7 +505,7 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
                         request={request}
                         onApprove={() => {}}
                         onDeny={() => {}}
-                        onView={() => setSelectedRequest(request)}
+                        onView={() => handleViewRequest(request)}
                       />
                     ))
                   )}
@@ -453,7 +525,16 @@ export default function WorkflowTab({ companyId }: WorkflowTabProps) {
         request={selectedRequest}
         companyId={companyId}
         open={!!selectedRequest}
-        onOpenChange={(open) => !open && setSelectedRequest(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedRequest(null);
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('request');
+              return next;
+            }, { replace: true });
+          }
+        }}
         onApprove={handleApprove}
         onDeny={handleDeny}
         isProcessing={selectedRequest ? processingIds.has(selectedRequest.id) : false}

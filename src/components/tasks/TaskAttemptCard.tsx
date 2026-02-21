@@ -51,7 +51,7 @@ export default function TaskAttemptCard({ attempt, isLatest }: TaskAttemptCardPr
       <CardContent className="py-3 px-4 pt-0 space-y-3">
         <div>
           <p className="text-xs text-muted-foreground mb-1">Output</p>
-          <div className="text-sm bg-muted/50 rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
+          <div className="text-sm bg-muted/50 rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
             {attempt.model_output}
           </div>
         </div>

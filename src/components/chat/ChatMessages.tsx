@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import ChatMessage from "./ChatMessage";
@@ -32,11 +32,32 @@ export default function ChatMessages({
 }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const hasInitialScrollRef = useRef(false);
 
-  // Auto-scroll to bottom on new messages
+  const scrollToLatest = useCallback(() => {
+    const root = scrollRef.current;
+    const viewport = root?.querySelector("[data-radix-scroll-area-viewport]") as HTMLDivElement | null;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+      return;
+    }
+    bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+  }, []);
+
+  // Ensure first paint opens at the latest message (no visible "scroll through history").
+  useLayoutEffect(() => {
+    if (messages.length === 0) return;
+    scrollToLatest();
+    const rafId = requestAnimationFrame(scrollToLatest);
+    hasInitialScrollRef.current = true;
+    return () => cancelAnimationFrame(rafId);
+  }, [messages.length, scrollToLatest]);
+
+  // Keep pinned to latest during live updates.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!hasInitialScrollRef.current || messages.length === 0) return;
+    scrollToLatest();
+  }, [messages, scrollToLatest]);
 
   if (isLoading) {
     return (

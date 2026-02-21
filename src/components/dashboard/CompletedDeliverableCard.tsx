@@ -14,6 +14,7 @@ import { Bot, Eye, CheckCircle2, Pin } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Task {
@@ -86,8 +87,8 @@ export default function CompletedDeliverableCard({ task, companyId }: CompletedD
                 <h4 className="truncate text-sm font-medium">{task.title}</h4>
               </div>
             {task.completion_summary && (
-              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground prose prose-xs dark:prose-invert max-w-none">
-                <ReactMarkdown>{task.completion_summary}</ReactMarkdown>
+              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground prose prose-xs dark:prose-invert max-w-none break-words">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.completion_summary}</ReactMarkdown>
               </div>
             )}
             </div>
@@ -140,9 +141,9 @@ export default function CompletedDeliverableCard({ task, companyId }: CompletedD
             </div>
 
             {task.completion_summary && (
-              <div className="rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none">
+              <div className="rounded-md bg-primary/10 p-3 text-sm prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
                 <strong className="text-primary">Summary:</strong>
-                <ReactMarkdown>{task.completion_summary}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.completion_summary}</ReactMarkdown>
               </div>
             )}
 
@@ -152,8 +153,8 @@ export default function CompletedDeliverableCard({ task, companyId }: CompletedD
                   Loading output...
                 </div>
               ) : (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{fullOutput || ""}</ReactMarkdown>
+                <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullOutput || ""}</ReactMarkdown>
                 </div>
               )}
             </ScrollArea>

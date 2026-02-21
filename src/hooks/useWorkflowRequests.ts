@@ -17,12 +17,22 @@ interface UseWorkflowRequestsOptions {
   onError?: (error: string) => void;
 }
 
+function isGovernanceRole(role?: {
+  name?: string | null;
+  display_name?: string | null;
+  authority_level?: string | null;
+} | null): boolean {
+  if (!role) return false;
+  const label = `${role.display_name || ''} ${role.name || ''}`.toLowerCase();
+  if (role.authority_level === 'executive' || role.authority_level === 'orchestrator') return true;
+  return label.includes('ceo') || label.includes('chief of staff');
+}
+
 export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsOptions) {
   const [requests, setRequests] = useState<WorkflowRequest[]>([]);
   const [rolesWithStatus, setRolesWithStatus] = useState<RoleWithStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-  const [pendingCount, setPendingCount] = useState(0);
 
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
@@ -31,6 +41,15 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     if (!companyId) return;
 
     try {
+      const { data: rolesData } = await supabase
+        .from('roles')
+        .select('id, name, display_name, authority_level')
+        .eq('company_id', companyId);
+
+      const governanceRoleIds = new Set(
+        (rolesData || []).filter((role) => isGovernanceRole(role)).map((role) => role.id)
+      );
+
       const { data: requestsData, error: requestsError } = await supabase
         .from('workflow_requests')
         .select(`
@@ -43,13 +62,15 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
       if (requestsError) throw requestsError;
 
-      setRequests(requestsData || []);
-      setPendingCount(requestsData?.filter(r => r.status === 'pending').length || 0);
+      const filtered = (requestsData || []).filter((request) => governanceRoleIds.has(request.requesting_role_id));
+      setRequests(filtered);
     } catch (err) {
       console.error('Error loading workflow requests:', err);
       onErrorRef.current?.('Failed to load workflow requests');
     }
   }, [companyId]);
+
+  const pendingCount = requests.filter((request) => request.status === 'pending').length;
 
   const loadRolesWithStatus = useCallback(async () => {
     if (!companyId) return;
@@ -75,6 +96,10 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
         .eq('company_id', companyId)
         .eq('status', 'pending');
 
+      const governanceRoleIds = new Set(
+        (rolesData || []).filter((role) => isGovernanceRole(role)).map((role) => role.id)
+      );
+
       const taskCountMap = new Map<string, number>();
       taskCounts?.forEach(t => {
         taskCountMap.set(t.role_id, (taskCountMap.get(t.role_id) || 0) + 1);
@@ -82,6 +107,7 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
 
       const requestCountMap = new Map<string, number>();
       requestCounts?.forEach(r => {
+        if (!governanceRoleIds.has(r.requesting_role_id)) return;
         requestCountMap.set(r.requesting_role_id, (requestCountMap.get(r.requesting_role_id) || 0) + 1);
       });
 
@@ -156,7 +182,6 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     setRequests(prev => prev.map(r => 
       r.id === requestId ? { ...r, status: 'approved' as const } : r
     ));
-    setPendingCount(prev => Math.max(0, prev - 1));
     setProcessingIds(prev => new Set(prev).add(requestId));
 
     try {
@@ -210,7 +235,6 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     setRequests(prev => prev.map(r => 
       r.id === requestId ? { ...r, status: 'denied' as const } : r
     ));
-    setPendingCount(prev => Math.max(0, prev - 1));
     setProcessingIds(prev => new Set(prev).add(requestId));
 
     try {

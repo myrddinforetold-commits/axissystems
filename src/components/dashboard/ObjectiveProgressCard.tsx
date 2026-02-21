@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Target, CheckCircle2, Circle, Clock, Bot } from 'lucide-react';
+import { Target, CheckCircle2, Circle, Bot } from 'lucide-react';
 
 interface Objective {
   id: string;
@@ -173,19 +173,9 @@ export default function ObjectiveProgressCard({ companyId }: ObjectiveProgressCa
                 <div className="space-y-2">
                   {group.objectives.slice(0, 2).map((obj) => (
                     <div key={obj.id} className="flex items-start gap-2">
-                      {obj.tasks_completed === obj.tasks_total && obj.tasks_total > 0 ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      )}
+                      <Circle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{obj.title}</p>
-                        {obj.tasks_total > 0 && (
-                          <Progress
-                            value={(obj.tasks_completed / obj.tasks_total) * 100}
-                            className="h-1 mt-1"
-                          />
-                        )}
                       </div>
                     </div>
                   ))}

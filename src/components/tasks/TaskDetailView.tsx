@@ -58,18 +58,18 @@ export default function TaskDetailView({
         <CardContent className="space-y-4">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Description</p>
-            <p className="text-sm">{task.description}</p>
+            <p className="text-sm break-words whitespace-pre-wrap">{task.description}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Completion Criteria</p>
-            <p className="text-sm bg-muted/50 rounded-md p-2 whitespace-pre-wrap">
+            <p className="text-sm bg-muted/50 rounded-md p-2 whitespace-pre-wrap break-words">
               {task.completion_criteria}
             </p>
           </div>
           {task.completion_summary && (
             <div>
               <p className="text-xs text-muted-foreground mb-1">Completion Summary</p>
-              <p className="text-sm bg-primary/10 border border-primary/20 rounded-md p-2 whitespace-pre-wrap">
+              <p className="text-sm bg-primary/10 border border-primary/20 rounded-md p-2 whitespace-pre-wrap break-words">
                 {task.completion_summary}
               </p>
             </div>

@@ -4,10 +4,11 @@ import { useNotifications } from '@/hooks/useNotifications';
 
 interface NotificationBellProps {
   onClick: () => void;
+  companyId?: string;
 }
 
-export function NotificationBell({ onClick }: NotificationBellProps) {
-  const { unreadCount } = useNotifications();
+export function NotificationBell({ onClick, companyId }: NotificationBellProps) {
+  const { unreadCount } = useNotifications({ companyId, importantOnly: true });
 
   return (
     <Button

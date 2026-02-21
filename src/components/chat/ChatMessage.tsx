@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import PinToMemoryDialog from "./PinToMemoryDialog";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatMessageProps {
   sender: "user" | "ai";
@@ -72,8 +73,8 @@ export default function ChatMessage({
               </p>
             ) : (
               <>
-                <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                  <ReactMarkdown>
+                <div className="text-sm prose prose-sm dark:prose-invert max-w-none break-words prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {content || (isStreaming ? "..." : "")}
                   </ReactMarkdown>
                 </div>

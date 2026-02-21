@@ -15,9 +15,10 @@ import { format, isToday, isYesterday, parseISO } from 'date-fns';
 interface NotificationPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  companyId?: string;
 }
 
-export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps) {
+export function NotificationPanel({ open, onOpenChange, companyId }: NotificationPanelProps) {
   const { 
     notifications, 
     isLoading, 
@@ -25,7 +26,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
     markAsRead, 
     markAllAsRead, 
     deleteNotification 
-  } = useNotifications();
+  } = useNotifications({ companyId, importantOnly: true });
 
   // Group notifications by date
   const groupedNotifications = notifications.reduce((groups, notification) => {
@@ -90,7 +91,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                 No notifications yet
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                You'll see updates about tasks and approvals here
+                You'll only see important, actionable updates here
               </p>
             </div>
           ) : (

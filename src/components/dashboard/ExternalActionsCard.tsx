@@ -17,6 +17,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface OutputAction {
   id: string;
@@ -183,8 +184,8 @@ export default function ExternalActionsCard({ companyId }: ExternalActionsCardPr
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Output Summary</p>
                 <div className="rounded-md border bg-muted/50 p-3 max-h-48 overflow-y-auto">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{selectedAction.action_data.output_summary}</ReactMarkdown>
+                  <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedAction.action_data.output_summary}</ReactMarkdown>
                   </div>
                 </div>
               </div>

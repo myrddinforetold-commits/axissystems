@@ -28,8 +28,8 @@ export default function MemoMessage({ fromRoleName, content, createdAt }: MemoMe
                   {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
                 </span>
               </div>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="whitespace-pre-wrap text-sm">{content}</p>
+              <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:break-words">
+                <p className="whitespace-pre-wrap break-words text-sm">{content}</p>
               </div>
             </div>
           </div>

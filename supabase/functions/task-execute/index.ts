@@ -27,7 +27,180 @@ interface AxisTaskResult {
   output: string;
   evaluation: EvalResult;
   success: boolean;
+  evaluationReason?: string;
   error?: string;
+}
+
+interface RoleInfo {
+  id: string;
+  name: string;
+  display_name: string | null;
+  authority_level: "observer" | "advisor" | "operator" | "executive" | "orchestrator";
+}
+
+function isLegacyServiceRoleJwt(token: string): boolean {
+  try {
+    const segments = token.split(".");
+    if (segments.length !== 3) return false;
+    const payloadBase64 = segments[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payloadBase64.padEnd(payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4), "=");
+    const payload = JSON.parse(atob(padded));
+    return payload?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
+function isGovernanceRole(role: RoleInfo | null): boolean {
+  if (!role) return false;
+  const roleName = `${role.display_name || ""} ${role.name || ""}`.toLowerCase();
+  if (role.authority_level === "executive" || role.authority_level === "orchestrator") return true;
+  return roleName.includes("ceo") || roleName.includes("chief of staff");
+}
+
+async function findGovernanceReviewer(
+  supabaseService: ReturnType<typeof createClient>,
+  companyId: string,
+  requestingRoleId: string
+): Promise<RoleInfo | null> {
+  const { data: roles } = await supabaseService
+    .from("roles")
+    .select("id, name, display_name, authority_level, created_at")
+    .eq("company_id", companyId);
+
+  if (!roles?.length) return null;
+
+  const scored = (roles as Array<RoleInfo & { created_at: string }>)
+    .filter((role) => role.id !== requestingRoleId)
+    .map((role) => {
+      const name = `${role.display_name || ""} ${role.name}`.toLowerCase();
+      let score = 0;
+      if (name.includes("ceo")) score = 100;
+      else if (name.includes("chief executive officer")) score = 95;
+      else if (name.includes("chief of staff")) score = 90;
+      else if (role.authority_level === "executive") score = 80;
+      else if (role.authority_level === "orchestrator") score = 70;
+      return { role, score };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return new Date(a.role.created_at).getTime() - new Date(b.role.created_at).getTime();
+    });
+
+  const best = scored[0];
+  if (!best || best.score <= 0) return null;
+  return {
+    id: best.role.id,
+    name: best.role.name,
+    display_name: best.role.display_name,
+    authority_level: best.role.authority_level,
+  };
+}
+
+async function autoApproveWorkflowRequest(
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  requestId: string
+): Promise<void> {
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/workflow-approve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        request_id: requestId,
+        action: "approve",
+        review_notes: "Auto-approved by internal governance routing policy.",
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to auto-approve governance routing memo:", error);
+  }
+}
+
+const STOPWORDS = new Set([
+  "the", "and", "for", "with", "from", "that", "this", "your", "their", "into", "about", "after",
+  "before", "while", "where", "when", "what", "which", "must", "should", "could", "would", "have",
+  "has", "had", "are", "was", "were", "been", "being", "will", "can", "not", "but", "or", "if",
+  "then", "than", "also", "each", "only", "using", "based", "include", "includes", "including"
+]);
+
+function extractKeywords(text: string): string[] {
+  const tokens = String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 4 && !STOPWORDS.has(t));
+
+  return Array.from(new Set(tokens)).slice(0, 24);
+}
+
+function evaluateOutputAgainstTask(
+  task: TaskRecord,
+  output: string,
+  runtimeEvaluation: EvalResult,
+  runtimeReason?: string
+): { result: EvalResult; reason: string } {
+  const text = String(output || "").trim();
+  const lower = text.toLowerCase();
+  const runtimePrefix = runtimeReason
+    ? `Runtime check: ${runtimeReason}`
+    : `Runtime evaluation: ${runtimeEvaluation}.`;
+
+  if (!text) {
+    return { result: "fail", reason: `${runtimePrefix} No output returned.` };
+  }
+
+  if (runtimeEvaluation === "fail") {
+    return { result: "fail", reason: `${runtimePrefix} Runtime marked task as failed.` };
+  }
+
+  const pointerOnlyPattern =
+    /(task already complete|deliverable verified at|see (the )?(file|doc)|\bverified at\b|\.md\b|file path)/i;
+  const looksLikePointerOnly = pointerOnlyPattern.test(lower) && text.length < 1200;
+  if (looksLikePointerOnly) {
+    return {
+      result: "fail",
+      reason: `${runtimePrefix} Output references external files instead of providing full inline deliverable.`
+    };
+  }
+
+  const requestedComplexity = (task.description?.length || 0) + (task.completion_criteria?.length || 0);
+  const minLength = requestedComplexity > 220 ? 320 : 180;
+  const hasCompletionCheck = /completion check/i.test(lower);
+  const sectionCount = (text.match(/^##\s+/gm) || []).length;
+  const bulletCount = (text.match(/^\s*[-*]\s+/gm) || []).length;
+  const hasStructure = sectionCount >= 2 || bulletCount >= 4;
+
+  const keywords = extractKeywords(`${task.description || ""} ${task.completion_criteria || ""}`);
+  const keywordHits = keywords.filter((k) => lower.includes(k)).length;
+  const coverage = keywords.length > 0 ? keywordHits / keywords.length : 1;
+
+  if (text.length < 120) {
+    return { result: "fail", reason: `${runtimePrefix} Output too short for requested task scope.` };
+  }
+
+  if (coverage < 0.22) {
+    return { result: "fail", reason: `${runtimePrefix} Low completion-criteria keyword coverage.` };
+  }
+
+  if (runtimeEvaluation === "unclear") {
+    return { result: "unclear", reason: `${runtimePrefix} Runtime returned unclear completion state.` };
+  }
+
+  if (text.length < minLength || !hasCompletionCheck || !hasStructure || coverage < 0.42) {
+    return {
+      result: "unclear",
+      reason: `${runtimePrefix} Output exists but needs stronger structure/criteria coverage before completion.`
+    };
+  }
+
+  return {
+    result: "pass",
+    reason: `${runtimePrefix} Quality gate passed for structure and completion-criteria coverage.`
+  };
 }
 
 async function readAxisTaskStream(response: Response): Promise<AxisTaskResult> {
@@ -44,6 +217,7 @@ async function readAxisTaskStream(response: Response): Promise<AxisTaskResult> {
   let output = "";
   let evaluation: EvalResult = "unclear";
   let success = false;
+  let evaluationReason: string | undefined;
 
   const flushEvent = () => {
     if (!eventName && dataLines.length === 0) return;
@@ -71,6 +245,9 @@ async function readAxisTaskStream(response: Response): Promise<AxisTaskResult> {
     } else if (eventName === "done") {
       if (typeof payload?.output === "string" && payload.output.length > 0) {
         output = payload.output;
+      }
+      if (typeof payload?.evaluation_reason === "string" && payload.evaluation_reason.length > 0) {
+        evaluationReason = payload.evaluation_reason;
       }
       if (payload?.evaluation === "pass" || payload?.evaluation === "fail" || payload?.evaluation === "unclear") {
         evaluation = payload.evaluation;
@@ -132,6 +309,7 @@ async function readAxisTaskStream(response: Response): Promise<AxisTaskResult> {
       output,
       evaluation,
       success,
+      evaluationReason,
     };
   } finally {
     try {
@@ -143,6 +321,9 @@ async function readAxisTaskStream(response: Response): Promise<AxisTaskResult> {
 }
 
 serve(async (req) => {
+  let requestTaskId: string | null = null;
+  let supabaseServiceForCatch: ReturnType<typeof createClient> | null = null;
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -156,6 +337,7 @@ serve(async (req) => {
     }
 
     const { task_id } = await req.json();
+    requestTaskId = task_id ?? null;
 
     if (!task_id) {
       return new Response(
@@ -184,9 +366,10 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === supabaseServiceKey;
+    const isServiceRole = token === supabaseServiceKey || isLegacyServiceRoleJwt(token);
 
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
+    supabaseServiceForCatch = supabaseService;
 
     let supabaseClient;
     if (isServiceRole) {
@@ -268,25 +451,41 @@ serve(async (req) => {
       }),
     });
 
+    let axisResult: AxisTaskResult;
     if (!axisResponse.ok) {
       const details = await axisResponse.text().catch(() => "");
-      return new Response(
-        JSON.stringify({ error: "Axis API task execution failed", details }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      axisResult = {
+        output: details || "Axis API task execution failed before output was produced.",
+        evaluation: "fail",
+        success: false,
+        error: "Axis API task execution failed",
+      };
+    } else {
+      try {
+        axisResult = await readAxisTaskStream(axisResponse);
+      } catch (streamError) {
+        axisResult = {
+          output: `Task stream error: ${
+            streamError instanceof Error ? streamError.message : "Unknown stream error"
+          }`,
+          evaluation: "fail",
+          success: false,
+          error: "Axis API stream failed",
+        };
+      }
     }
-
-    const axisResult = await readAxisTaskStream(axisResponse);
     const modelOutput = axisResult.output?.trim() || "No output returned from runtime.";
 
-    const evaluationResult: EvalResult =
+    const runtimeEvaluation: EvalResult =
       axisResult.evaluation || (axisResult.success ? "pass" : "fail");
-    const evaluationReason =
-      evaluationResult === "pass"
-        ? "Task output accepted by runtime."
-        : evaluationResult === "unclear"
-        ? "Runtime returned unclear completion state."
-        : "Runtime marked task as failed.";
+    const scoredEvaluation = evaluateOutputAgainstTask(
+      taskRecord,
+      modelOutput,
+      runtimeEvaluation,
+      axisResult.evaluationReason
+    );
+    const evaluationResult: EvalResult = scoredEvaluation.result;
+    const evaluationReason = scoredEvaluation.reason;
 
     await supabaseService.from("task_attempts").insert({
       task_id,
@@ -351,6 +550,14 @@ serve(async (req) => {
       .single();
 
     if (newStatus === "completed") {
+      const { data: taskRole } = await supabaseService
+        .from("roles")
+        .select("id, name, display_name, authority_level")
+        .eq("id", taskRecord.role_id)
+        .maybeSingle();
+      const currentRole = (taskRole as RoleInfo | null) || null;
+      const roleIsGovernance = isGovernanceRole(currentRole);
+
       await supabaseService.from("role_messages").insert({
         role_id: taskRecord.role_id,
         company_id: taskRecord.company_id,
@@ -360,22 +567,106 @@ serve(async (req) => {
         }`,
       });
 
-      await supabaseService.from("workflow_requests").insert({
-        company_id: taskRecord.company_id,
-        requesting_role_id: taskRecord.role_id,
-        request_type: "review_output",
-        summary: `Review output: ${taskRecord.title}`,
-        proposed_content: JSON.stringify({
-          task_id: taskRecord.id,
-          task_title: taskRecord.title,
-          task_description: taskRecord.description,
-          completion_criteria: taskRecord.completion_criteria,
-          output: modelOutput,
-          attempts: attemptNumber,
-          completion_summary: completionSummary,
-        }),
-        source_task_id: taskRecord.id,
-      });
+      if (roleIsGovernance) {
+        await supabaseService.from("workflow_requests").insert({
+          company_id: taskRecord.company_id,
+          requesting_role_id: taskRecord.role_id,
+          request_type: "review_output",
+          summary: `Review output: ${taskRecord.title}`,
+          proposed_content: JSON.stringify({
+            task_id: taskRecord.id,
+            task_title: taskRecord.title,
+            task_description: taskRecord.description,
+            completion_criteria: taskRecord.completion_criteria,
+            output: modelOutput,
+            attempts: attemptNumber,
+            completion_summary: completionSummary,
+          }),
+          source_task_id: taskRecord.id,
+        });
+      } else {
+        const reviewerRole = await findGovernanceReviewer(
+          supabaseService,
+          taskRecord.company_id,
+          taskRecord.role_id
+        );
+
+        if (reviewerRole) {
+          const completionMemo = `Execution output ready for approval from ${currentRole?.display_name || currentRole?.name || "Role"}.\n\n` +
+            `Task: ${taskRecord.title}\n` +
+            `Summary: ${completionSummary || "Completed successfully."}\n\n` +
+            `Output preview:\n${modelOutput.slice(0, 1800)}${modelOutput.length > 1800 ? "\n\n(Truncated preview)" : ""}\n\n` +
+            `Please decide objective completion and next assignment.`;
+
+          const { data: wfRequest } = await supabaseService
+            .from("workflow_requests")
+            .insert({
+              company_id: taskRecord.company_id,
+              requesting_role_id: taskRecord.role_id,
+              target_role_id: reviewerRole.id,
+              request_type: "send_memo",
+              summary: `Execution completion review: ${taskRecord.title}`,
+              proposed_content: completionMemo,
+              source_task_id: taskRecord.id,
+            })
+            .select("id")
+            .single();
+
+          if (wfRequest?.id) {
+            const runAutoApprove = autoApproveWorkflowRequest(supabaseUrl, supabaseServiceKey, wfRequest.id);
+            (globalThis as any).EdgeRuntime?.waitUntil?.(runAutoApprove) ?? runAutoApprove;
+          }
+
+          await supabaseService.from("role_messages").insert({
+            role_id: taskRecord.role_id,
+            company_id: taskRecord.company_id,
+            sender: "ai",
+            content: `📬 **Completion Routed to Governance**\n\nTask output was sent to ${reviewerRole.display_name || reviewerRole.name} for objective/next-step approval.`,
+          });
+        }
+      }
+
+      if (roleIsGovernance) {
+        // If this governance task was triggered from an incoming memo, queue completion memo back
+        // to originating role so they can continue their loop with executive/orchestrator direction.
+        const { data: originMemo } = await supabaseService
+          .from("role_memos")
+          .select("from_role_id, created_at")
+          .eq("company_id", taskRecord.company_id)
+          .eq("to_role_id", taskRecord.role_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (originMemo?.from_role_id && originMemo.from_role_id !== taskRecord.role_id) {
+          const completionMemo = `Task completed: ${taskRecord.title}
+
+Completion summary: ${completionSummary || "Completed successfully."}
+
+Key output:
+${modelOutput.slice(0, 1800)}${modelOutput.length > 1800 ? "\n\n(Truncated preview; full output is in task history.)" : ""}
+
+Recommended next action:
+- Review this output and set/approve the next objective milestone.`;
+
+          await supabaseService.from("workflow_requests").insert({
+            company_id: taskRecord.company_id,
+            requesting_role_id: taskRecord.role_id,
+            target_role_id: originMemo.from_role_id,
+            request_type: "send_memo",
+            summary: `Completion update: ${taskRecord.title}`,
+            proposed_content: completionMemo,
+            source_task_id: taskRecord.id,
+          });
+
+          await supabaseService.from("role_messages").insert({
+            role_id: originMemo.from_role_id,
+            company_id: taskRecord.company_id,
+            sender: "ai",
+            content: `📣 **Completion Update Available**\n\n${taskRecord.title} was completed. A memo draft to this role is now in Workflow for approval.`,
+          });
+        }
+      }
     } else if (newStatus === "blocked") {
       await supabaseService.from("role_messages").insert({
         role_id: taskRecord.role_id,
@@ -429,6 +720,19 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Task execution error:", error);
+
+    if (requestTaskId && supabaseServiceForCatch) {
+      try {
+        await supabaseServiceForCatch
+          .from("tasks")
+          .update({ status: "blocked" })
+          .eq("id", requestTaskId)
+          .eq("status", "running");
+      } catch (stateErr) {
+        console.error("Failed to mark task blocked after execution error:", stateErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
