@@ -38,6 +38,24 @@ interface RoleInfo {
   authority_level: "observer" | "advisor" | "operator" | "executive" | "orchestrator";
 }
 
+interface WorkspaceFilePayload {
+  file_path: string;
+  filename: string;
+  size_bytes: number;
+  mime_type: string;
+  content: string;
+}
+
+interface PersistedArtifact {
+  filename: string;
+  mime_type: string;
+  size_bytes?: number;
+  storage_path?: string;
+  source_file_path?: string;
+}
+
+const WORKSPACE_FILE_REGEX = /\b([a-zA-Z0-9][a-zA-Z0-9_./-]{0,180}\.md)\b/g;
+
 function isLegacyServiceRoleJwt(token: string): boolean {
   try {
     const segments = token.split(".");
@@ -118,6 +136,136 @@ async function autoApproveWorkflowRequest(
   } catch (error) {
     console.error("Failed to auto-approve governance routing memo:", error);
   }
+}
+
+function sanitizeFilename(input?: string): string {
+  const fallback = `artifact-${Date.now()}.md`;
+  const value = String(input || "").trim();
+  if (!value) return fallback;
+  return value
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 120) || fallback;
+}
+
+function extractWorkspaceFileCandidates(output: string): string[] {
+  const candidates = new Set<string>();
+  const text = String(output || "");
+  let match: RegExpExecArray | null;
+
+  WORKSPACE_FILE_REGEX.lastIndex = 0;
+  while ((match = WORKSPACE_FILE_REGEX.exec(text)) !== null) {
+    const candidate = String(match[1] || "").trim();
+    if (!candidate) continue;
+    if (candidate.startsWith("http://") || candidate.startsWith("https://")) continue;
+    if (candidate.includes("..")) continue;
+    candidates.add(candidate.replace(/^\.?\//, ""));
+    if (candidates.size >= 4) break;
+  }
+
+  return Array.from(candidates);
+}
+
+async function fetchWorkspaceFilesFromAxis(params: {
+  axisApiUrl: string;
+  axisApiSecret: string;
+  companyId: string;
+  roleId: string;
+  candidatePaths: string[];
+}): Promise<WorkspaceFilePayload[]> {
+  const { axisApiUrl, axisApiSecret, companyId, roleId, candidatePaths } = params;
+  const files: WorkspaceFilePayload[] = [];
+
+  for (const filePath of candidatePaths) {
+    try {
+      const response = await fetch(`${axisApiUrl}/api/v1/workspace/read`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${axisApiSecret}`,
+        },
+        body: JSON.stringify({
+          company_id: companyId,
+          role_id: roleId,
+          file_path: filePath,
+        }),
+      });
+
+      if (!response.ok) continue;
+      const payload = await response.json() as { file?: WorkspaceFilePayload };
+      if (!payload?.file?.content || !payload.file.filename) continue;
+      files.push(payload.file);
+    } catch (error) {
+      console.error("Failed to fetch workspace file from Axis API:", error);
+    }
+  }
+
+  return files;
+}
+
+function appendWorkspaceArtifactContent(output: string, files: WorkspaceFilePayload[]): string {
+  if (!files.length) return output;
+
+  const sections: string[] = [];
+  let totalChars = 0;
+  const maxChars = 30_000;
+
+  for (const file of files) {
+    const content = String(file.content || "");
+    if (!content) continue;
+    const remaining = maxChars - totalChars;
+    if (remaining <= 0) break;
+
+    const clipped = content.slice(0, remaining);
+    totalChars += clipped.length;
+    sections.push(`## Artifact: ${file.filename}\n\n${clipped}`);
+  }
+
+  if (!sections.length) return output;
+
+  const list = files.map((f) => `- ${f.filename}`).join("\n");
+  return `${output}\n\n---\n\n### Workspace Artifacts Captured\n${list}\n\n${sections.join("\n\n---\n\n")}`;
+}
+
+async function persistWorkspaceArtifacts(params: {
+  supabaseService: ReturnType<typeof createClient>;
+  companyId: string;
+  taskId: string;
+  files: WorkspaceFilePayload[];
+}): Promise<PersistedArtifact[]> {
+  const { supabaseService, companyId, taskId, files } = params;
+  const persisted: PersistedArtifact[] = [];
+
+  for (const file of files) {
+    const filename = sanitizeFilename(file.filename);
+    const bodyBytes = new TextEncoder().encode(String(file.content || ""));
+    const prefix = `${companyId}/${taskId}`;
+    const uniqueName = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${filename}`;
+    const storagePath = `${prefix}/${uniqueName}`;
+    const mimeType = file.mime_type || "text/markdown";
+
+    const { error: uploadError } = await supabaseService.storage
+      .from("artifacts")
+      .upload(storagePath, bodyBytes, {
+        contentType: mimeType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Failed to upload workspace artifact:", uploadError);
+      continue;
+    }
+
+    persisted.push({
+      filename,
+      mime_type: mimeType,
+      size_bytes: bodyBytes.byteLength,
+      storage_path: storagePath,
+      source_file_path: file.file_path,
+    });
+  }
+
+  return persisted;
 }
 
 const STOPWORDS = new Set([
@@ -474,7 +622,28 @@ serve(async (req) => {
         };
       }
     }
-    const modelOutput = axisResult.output?.trim() || "No output returned from runtime.";
+    const runtimeOutput = axisResult.output?.trim() || "No output returned from runtime.";
+    const candidateWorkspaceFiles = extractWorkspaceFileCandidates(runtimeOutput);
+    const workspaceFiles = candidateWorkspaceFiles.length > 0
+      ? await fetchWorkspaceFilesFromAxis({
+          axisApiUrl: AXIS_API_URL,
+          axisApiSecret: AXIS_API_SECRET,
+          companyId: taskRecord.company_id,
+          roleId: taskRecord.role_id,
+          candidatePaths: candidateWorkspaceFiles,
+        })
+      : [];
+    const persistedArtifacts = workspaceFiles.length > 0
+      ? await persistWorkspaceArtifacts({
+          supabaseService,
+          companyId: taskRecord.company_id,
+          taskId: taskRecord.id,
+          files: workspaceFiles,
+        })
+      : [];
+    const modelOutput = workspaceFiles.length > 0
+      ? appendWorkspaceArtifactContent(runtimeOutput, workspaceFiles)
+      : runtimeOutput;
 
     const runtimeEvaluation: EvalResult =
       axisResult.evaluation || (axisResult.success ? "pass" : "fail");
@@ -517,7 +686,7 @@ serve(async (req) => {
 
     if (evaluationResult === "pass") {
       newStatus = "completed";
-      completionSummary = `Completed via Axis API/Kimi on attempt ${attemptNumber}.`;
+      completionSummary = `Completed via Axis API/Kimi on attempt ${attemptNumber}.${persistedArtifacts.length > 0 ? ` Captured ${persistedArtifacts.length} workspace artifact(s).` : ""}`;
     } else if (evaluationResult === "unclear") {
       newStatus = "blocked";
     } else if (attemptNumber >= taskRecord.max_attempts) {
@@ -564,8 +733,26 @@ serve(async (req) => {
         sender: "ai",
         content: `✅ **Task Completed**\n\n**Task:** ${taskRecord.title}\n\n${modelOutput.substring(0, 2500)}${
           modelOutput.length > 2500 ? "\n\n(Truncated in chat; full output is in task history.)" : ""
-        }`,
+        }${persistedArtifacts.length > 0 ? `\n\n📎 ${persistedArtifacts.length} workspace artifact(s) attached in Outputs Library.` : ""}`,
       });
+
+      if (persistedArtifacts.length > 0) {
+        await supabaseService.from("output_actions").insert({
+          task_id: taskRecord.id,
+          company_id: taskRecord.company_id,
+          action_type: "export_document",
+          status: "completed",
+          action_data: {
+            source: "workspace_capture",
+            artifacts: persistedArtifacts,
+            artifact_count: persistedArtifacts.length,
+            artifact_storage_bucket: "artifacts",
+            artifact_uploaded_at: new Date().toISOString(),
+          },
+          notes: "Captured workspace files referenced in task output.",
+          completed_at: new Date().toISOString(),
+        });
+      }
 
       if (roleIsGovernance) {
         await supabaseService.from("workflow_requests").insert({
@@ -581,6 +768,7 @@ serve(async (req) => {
             output: modelOutput,
             attempts: attemptNumber,
             completion_summary: completionSummary,
+            artifacts: persistedArtifacts,
           }),
           source_task_id: taskRecord.id,
         });
@@ -596,6 +784,7 @@ serve(async (req) => {
             `Task: ${taskRecord.title}\n` +
             `Summary: ${completionSummary || "Completed successfully."}\n\n` +
             `Output preview:\n${modelOutput.slice(0, 1800)}${modelOutput.length > 1800 ? "\n\n(Truncated preview)" : ""}\n\n` +
+            `${persistedArtifacts.length > 0 ? `Artifacts captured:\n${persistedArtifacts.map((a) => `- ${a.filename}`).join("\n")}\n\n` : ""}` +
             `Please decide objective completion and next assignment.`;
 
           const { data: wfRequest } = await supabaseService
@@ -645,6 +834,8 @@ Completion summary: ${completionSummary || "Completed successfully."}
 
 Key output:
 ${modelOutput.slice(0, 1800)}${modelOutput.length > 1800 ? "\n\n(Truncated preview; full output is in task history.)" : ""}
+
+${persistedArtifacts.length > 0 ? `Artifacts captured:\n${persistedArtifacts.map((a) => `- ${a.filename}`).join("\n")}\n` : ""}
 
 Recommended next action:
 - Review this output and set/approve the next objective milestone.`;
