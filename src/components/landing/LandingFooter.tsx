@@ -89,7 +89,7 @@ export function LandingFooter() {
               <Button 
                 type="submit" 
                 disabled={isSubmitting}
-                className="h-12 px-6 bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] text-white hover:opacity-90 transition-opacity border-0"
+                className="h-12 px-6 bg-black text-white border border-white/20 hover:bg-black/90 transition-colors"
               >
                 {isSubmitting ? "Subscribing..." : "Subscribe"}
                 <ArrowRight className="w-4 h-4 ml-2" />
