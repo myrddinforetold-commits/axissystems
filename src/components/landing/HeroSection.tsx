@@ -1,12 +1,29 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { NeuralMeshBackground } from "./NeuralMeshBackground";
+
+const ROTATING_WORDS = ["bank", "fund", "trading desk", "company", "startup", "platform", "machine", "workforce"];
 
 interface HeroSectionProps {
   onRequestAccess: () => void;
 }
 
 export function HeroSection({ onRequestAccess }: HeroSectionProps) {
+  const [wordIndex, setWordIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
+        setIsAnimating(false);
+      }, 400);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
   const scrollToHowItWorks = () => {
     document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
   };
@@ -36,7 +53,19 @@ export function HeroSection({ onRequestAccess }: HeroSectionProps) {
           className="mt-10 text-4xl md:text-6xl lg:text-7xl font-light tracking-tight leading-[1.1] opacity-0 animate-fade-in-up"
           style={{ fontFamily: "'JetBrains Mono', monospace", color: "hsl(220,15%,92%)", animationDelay: "0.35s", animationFillMode: "forwards" }}
         >
-          Your company now has<br className="hidden sm:block" />
+          Your{" "}
+          <span className="inline-block overflow-hidden align-bottom" style={{ height: "1.15em" }}>
+            <span
+              className="inline-block transition-all duration-400 ease-in-out"
+              style={{
+                transform: isAnimating ? "translateY(-100%)" : "translateY(0)",
+                opacity: isAnimating ? 0 : 1,
+              }}
+            >
+              {ROTATING_WORDS[wordIndex]}
+            </span>
+          </span>
+          {" "}now has<br className="hidden sm:block" />
           {" "}<span className="font-normal hero-shimmer">software that works.</span>
         </h1>
         

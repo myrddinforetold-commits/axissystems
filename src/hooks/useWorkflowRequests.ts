@@ -286,7 +286,6 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     setRequests(prev => prev.map(r => 
       requestIds.includes(r.id) ? { ...r, status: 'approved' as const } : r
     ));
-    setPendingCount(prev => Math.max(0, prev - requestIds.length));
     setProcessingIds(prev => {
       const next = new Set(prev);
       requestIds.forEach(id => next.add(id));
@@ -347,7 +346,6 @@ export function useWorkflowRequests({ companyId, onError }: UseWorkflowRequestsO
     setRequests(prev => prev.map(r => 
       requestIds.includes(r.id) ? { ...r, status: 'denied' as const } : r
     ));
-    setPendingCount(prev => Math.max(0, prev - requestIds.length));
     setProcessingIds(prev => {
       const next = new Set(prev);
       requestIds.forEach(id => next.add(id));
