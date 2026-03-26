@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { NeuralMeshBackground } from "./NeuralMeshBackground";
 
-const ROTATING_WORDS = ["bank", "fund", "trading desk", "company", "startup", "platform", "machine", "workforce"];
+const ROTATING_WORDS = ["bank", "fund", "company", "startup", "platform", "machine", "workforce"];
 
 interface HeroSectionProps {
   onRequestAccess: () => void;
